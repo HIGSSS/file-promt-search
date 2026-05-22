@@ -1,0 +1,36 @@
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+
+# Backend generated data
+project/project/backend/.venv/
+project/project/backend/storage/
+
+# Flutter / Dart
+project/project/mobile/build/
+project/project/mobile/.dart_tool/
+project/project/mobile/.flutter-plugins
+project/project/mobile/.flutter-plugins-dependencies
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# Local demo files
+demo_files/
+project/demo_files/
+project/project/demo_files/
+
+# Large generated/model/cache files
+*.faiss
+*.pkl
+*.pt
+*.pth
+*.onnx
+*.dll
+*.pyd

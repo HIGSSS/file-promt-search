@@ -1,0 +1,126 @@
+{
+  "_note": "20 запросов: 10 точных (подстрока в имени файла) и 10 семантических (описательных). Для каждого запроса перечислены релевантные файлы в массиве relevant.",
+  "queries": [
+    {
+      "id": 1,
+      "query": "IMG_0002",
+      "kind": "exact",
+      "relevant": ["IMG_0002.png"]
+    },
+    {
+      "id": 2,
+      "query": "FILE_0007",
+      "kind": "exact",
+      "relevant": ["FILE_0007.docx"]
+    },
+    {
+      "id": 3,
+      "query": "ubuntu",
+      "kind": "exact",
+      "relevant": ["конфигурация виртуальной_машины_ubuntu.conf"]
+    },
+    {
+      "id": 4,
+      "query": "nginx",
+      "kind": "exact",
+      "relevant": ["лог_сервера_nginx_ошибки.log"]
+    },
+    {
+      "id": 5,
+      "query": "турция",
+      "kind": "exact",
+      "relevant": ["архив_фотографий_отпуск_турция.tar"]
+    },
+    {
+      "id": 6,
+      "query": "стартап",
+      "kind": "exact",
+      "relevant": ["презентация_проекта_стартап.key"]
+    },
+    {
+      "id": 7,
+      "query": "FILE_0011",
+      "kind": "exact",
+      "relevant": ["FILE_0011.txt"]
+    },
+    {
+      "id": 8,
+      "query": "бекап",
+      "kind": "exact",
+      "relevant": ["бекап_базы_данных_2024_декабрь.dump"]
+    },
+    {
+      "id": 9,
+      "query": "FILE_0021",
+      "kind": "exact",
+      "relevant": ["FILE_0021.xlsx"]
+    },
+    {
+      "id": 10,
+      "query": "FILE_0016",
+      "kind": "exact",
+      "relevant": ["FILE_0016.csv"]
+    },
+
+    {
+      "id": 11,
+      "query": "закат над морем",
+      "kind": "semantic",
+      "relevant": ["IMG_0001.png"]
+    },
+    {
+      "id": 12,
+      "query": "кошка у окна",
+      "kind": "semantic",
+      "relevant": ["IMG_0002.png"]
+    },
+    {
+      "id": 13,
+      "query": "горы и озеро",
+      "kind": "semantic",
+      "relevant": ["IMG_0003.png", "IMG_0008.png"]
+    },
+    {
+      "id": 14,
+      "query": "меню в кофейне",
+      "kind": "semantic",
+      "relevant": ["IMG_0011.png", "IMG_0004.png"]
+    },
+    {
+      "id": 15,
+      "query": "договор аренды квартиры",
+      "kind": "semantic",
+      "relevant": ["FILE_0001.pdf"]
+    },
+    {
+      "id": 16,
+      "query": "машинное обучение и нейронные сети",
+      "kind": "semantic",
+      "relevant": ["FILE_0002.pdf"]
+    },
+    {
+      "id": 17,
+      "query": "резюме разработчика python",
+      "kind": "semantic",
+      "relevant": ["FILE_0006.docx"]
+    },
+    {
+      "id": 18,
+      "query": "рецепт борща",
+      "kind": "semantic",
+      "relevant": ["FILE_0003.pdf"]
+    },
+    {
+      "id": 19,
+      "query": "бюджет на месяц",
+      "kind": "semantic",
+      "relevant": ["FILE_0021.xlsx"]
+    },
+    {
+      "id": 20,
+      "query": "продажи по регионам",
+      "kind": "semantic",
+      "relevant": ["FILE_0016.csv"]
+    }
+  ]
+}

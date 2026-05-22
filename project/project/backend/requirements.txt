@@ -1,0 +1,37 @@
+# --- Веб-фреймворк ---
+fastapi>=0.110,<1.0
+uvicorn[standard]>=0.27,<1.0
+pydantic>=2.5,<3.0
+python-multipart>=0.0.9,<1.0
+
+# --- ML: энкодеры и инференс ---
+# CPU-версия torch явно: GPU-версия в 10x тяжелее и не нужна
+# (SigLIP-base на CPU укладывается в 1-5 сек/файл согласно §8 ТЗ).
+torch>=2.2,<3.0
+transformers>=4.40,<5.0
+sentence-transformers>=2.7,<4.0
+# Нужен SiglipTokenizer внутри AutoProcessor.from_pretrained(SIGLIP_MODEL).
+sentencepiece>=0.2,<1.0
+
+# --- OCR ---
+# paddlepaddle ставится вместе с paddleocr, но на некоторых ОС
+# индекс PyPI требует явного указания. Совместимые версии:
+paddlepaddle>=2.6,<3.0
+paddleocr>=2.7,<3.0
+
+# --- Векторный индекс ---
+# faiss-cpu достаточно для Flat-индексов на десятках тысяч векторов.
+faiss-cpu>=1.8,<2.0
+
+# --- Обработчики файлов ---
+Pillow>=10.0,<12.0
+# PyMuPDF вместо PyPDF2+pdf2image: не требует системного poppler,
+# умеет и извлекать текст, и рендерить страницы для OCR (см. §4.4 фикс).
+PyMuPDF>=1.23,<2.0
+python-docx>=1.1,<2.0
+pandas>=2.0,<3.0
+openpyxl>=3.1,<4.0
+opencv-python>=4.8,<5.0
+
+# --- numpy: закрепляем верхнюю границу, т.к. paddlepaddle может отставать ---
+numpy>=1.24,<2.1

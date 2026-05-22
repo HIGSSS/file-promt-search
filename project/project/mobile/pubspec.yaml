@@ -1,0 +1,40 @@
+name: intelligent_file_search
+description: Мобильный клиент семантического поиска файлов с ML-бэкендом.
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+  flutter: '>=3.19.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # HTTP-клиент для REST, multipart-загрузки и скачивания файлов.
+  http: ^1.2.0
+
+  # Выбор файлов через Android SAF; файлы загружаются на backend multipart-запросом.
+  file_picker: ^8.0.0
+
+  # Открытие файла нативным приложением по тапу.
+  open_filex: ^4.3.4
+
+  # SharedPreferences: URL сервера, последний путь индексации.
+  shared_preferences: ^2.2.0
+
+  # Временная папка для скачивания найденного файла перед открытием.
+  path_provider: ^2.1.2
+
+  # Не используется напрямую, но подтягивается транзитивно.
+  path: ^1.9.0
+
+  cupertino_icons: ^1.0.6
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
