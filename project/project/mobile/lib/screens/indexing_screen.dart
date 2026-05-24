@@ -117,8 +117,23 @@ class _IndexingScreenState extends State<IndexingScreen> {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
+        const SizedBox(height: 20),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.info_outline, size: 14, color: Colors.grey.shade500),
+            const SizedBox(width: 4),
+            Flexible(
+              child: Text(
+                'Индексация идёт на сервере. Можно закрыть приложение — она продолжится.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
+              ),
+            ),
+          ],
+        ),
         if (_networkError != null) ...[
-          const SizedBox(height: 16),
+          const SizedBox(height: 8),
           Text(
             'Связь с сервером потеряна, повтор...',
             style: TextStyle(color: Colors.orange.shade800, fontSize: 12),

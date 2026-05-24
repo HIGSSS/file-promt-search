@@ -1,6 +1,7 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
+import '../models/index_status.dart';
 import '../services/api_service.dart';
 import '../services/device_file_scanner.dart';
 import 'indexing_screen.dart';
@@ -21,6 +22,30 @@ class _HomeScreenState extends State<HomeScreen> {
   final _queryController = TextEditingController();
   String _fileType = 'all';
   bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // При старте проверяем статус сервера: если индексация уже идёт
+    // (например, приложение перезапустили пока сервер работал), —
+    // переходим сразу на IndexingScreen, не заставляя пользователя гадать.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _checkServerStatus());
+  }
+
+  Future<void> _checkServerStatus() async {
+    try {
+      final status = await ApiService.getStatus();
+      if (!mounted) return;
+      if (status.state == IndexState.indexing) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const IndexingScreen()),
+        );
+      }
+    } catch (_) {
+      // Сервер недоступен при старте — не показываем ошибку, просто ждём.
+    }
+  }
 
   @override
   void dispose() {
@@ -97,28 +122,6 @@ class _HomeScreenState extends State<HomeScreen> {
         context,
         MaterialPageRoute(builder: (_) => const ScanUploadScreen()),
       );
-      return;
-
-      /*
-      final files = await DeviceFileScanner.scanSupportedFiles();
-      if (files.isEmpty) {
-        if (mounted) {
-          _showError('На устройстве не найдены поддерживаемые файлы.');
-        }
-        return;
-      }
-
-      if (!mounted) return;
-      final confirmed = await _confirmAutoIndex(files.length);
-      if (confirmed != true) return;
-
-      await ApiService.uploadPathsAndIndex(files);
-      if (!mounted) return;
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => const IndexingScreen()),
-      );
-      */
     } on ApiException catch (e) {
       if (mounted) _showError(e.message);
     } finally {
@@ -166,7 +169,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Future<bool?> confirmAutoIndex(int count) {
+  Future<bool?> _confirmAutoIndex(int count) {
     return showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(

@@ -207,77 +207,110 @@ class ApiService {
     });
   }
 
-  /// POST /index-uploads — повторная индексация уже загруженных копий.
+  /// Загружает файлы батчами и запускает индексацию на сервере.
+  ///
+  /// [precomputedTotalBytes] — суммарный размер файлов, посчитанный заранее
+  /// в UI-изоляте. Если передан, пре-скан не делается: это важно в фоновом
+  /// изоляте, где тысячи последовательных file.exists()/file.length()
+  /// занимают много минут и дают ложный «0 байт» на прогресс-баре.
   static Future<void> uploadPathsAndIndexBatched(
     List<File> files, {
+    int precomputedTotalBytes = 0,
     void Function(int sentBytes, int totalBytes, String currentFile)?
         onProgress,
   }) async {
     if (files.isEmpty) {
-      throw const ApiException('No files selected.');
+      throw const ApiException('Файлы не выбраны.');
     }
 
     await _withErrorHandling(() async {
-      final existingFiles = <File>[];
-      var totalBytes = 0;
-      for (final file in files) {
-        if (!await file.exists()) continue;
-        existingFiles.add(file);
-        totalBytes += await file.length();
-      }
-
-      if (existingFiles.isEmpty) {
-        throw const ApiException('No readable files found.');
-      }
+      // Используем precomputedTotalBytes если он передан, иначе считаем сами.
+      // lengthSync() допустим здесь: метод вызывается из фонового изолята.
+      final totalBytes = precomputedTotalBytes > 0
+          ? precomputedTotalBytes
+          : files.fold<int>(0, (s, f) {
+              try { return s + f.lengthSync(); } catch (_) { return s; }
+            });
 
       var sentBytes = 0;
-      for (var start = 0; start < existingFiles.length; start += _uploadBatchSize) {
-        final batch = existingFiles.skip(start).take(_uploadBatchSize).toList();
-        final uri = await _uri('/upload-index').then(
-          (u) => u.replace(
-            queryParameters: {
-              'append': (start != 0).toString(),
-              'index_after': 'false',
-            },
-          ),
-        );
-        final request = http.MultipartRequest('POST', uri);
+      for (var start = 0; start < files.length; start += _uploadBatchSize) {
+        final batch = files.skip(start).take(_uploadBatchSize).toList();
+        final batchTotalBytes =
+            batch.fold<int>(0, (s, f) {
+              try { return s + f.lengthSync(); } catch (_) { return s; }
+            });
+        final uri = (await _uri('/upload-index')).replace(queryParameters: {
+          'append': (start != 0).toString(),
+          'index_after': 'false',
+        });
 
-        for (final file in batch) {
-          final length = await file.length();
-          final stream = file.openRead().transform(
-                StreamTransformer<List<int>, List<int>>.fromHandlers(
-                  handleData: (data, sink) {
-                    sentBytes += data.length;
-                    onProgress?.call(sentBytes, totalBytes, file.path);
-                    sink.add(data);
-                  },
-                ),
-              );
-          request.files.add(
-            http.MultipartFile(
-              'files',
-              http.ByteStream(stream),
-              length,
-              filename: file.uri.pathSegments.last,
-            ),
-          );
-        }
-
-        final streamed = await request.send().timeout(_uploadTimeout);
-        final response = await http.Response.fromStream(streamed);
-        if (response.statusCode != 200) {
-          final detail = _extractDetail(response.body) ??
-              'Upload error ${response.statusCode}';
-          throw ApiException(detail, statusCode: response.statusCode);
+        // До 3 попыток на батч. При обрыве соединения (фон, плохой Wi-Fi)
+        // пересоздаём запрос со свежими потоками и пробуем снова.
+        const maxAttempts = 3;
+        for (var attempt = 1; ; attempt++) {
+          var batchSentBytes = 0;
+          try {
+            await _sendBatch(
+              uri: uri,
+              batchFiles: batch,
+              onChunk: (delta, path) {
+                batchSentBytes += delta;
+                onProgress?.call(sentBytes + batchSentBytes, totalBytes, path);
+              },
+            );
+            sentBytes += batchTotalBytes;
+            break;
+          } on SocketException {
+            if (attempt >= maxAttempts) rethrow;
+            await Future.delayed(Duration(seconds: 2 * attempt));
+          } on TimeoutException {
+            if (attempt >= maxAttempts) rethrow;
+            await Future.delayed(Duration(seconds: 2 * attempt));
+          }
         }
       }
 
       await reindexUploaded();
       await SettingsService.setLastIndexedPath(
-        'Auto indexed files: ${existingFiles.length}',
+        'Автоматически найдено файлов: ${files.length}',
       );
     });
+  }
+
+  /// Отправляет один батч файлов. Создаёт запрос с нуля, поэтому
+  /// метод можно вызывать повторно при обрыве соединения.
+  static Future<void> _sendBatch({
+    required Uri uri,
+    required List<File> batchFiles,
+    required void Function(int delta, String path) onChunk,
+  }) async {
+    final request = http.MultipartRequest('POST', uri);
+    for (final file in batchFiles) {
+      final length = await file.length();
+      final stream = file.openRead().transform(
+        StreamTransformer<List<int>, List<int>>.fromHandlers(
+          handleData: (data, sink) {
+            onChunk(data.length, file.path);
+            sink.add(data);
+          },
+        ),
+      );
+      request.files.add(
+        http.MultipartFile(
+          'files',
+          http.ByteStream(stream),
+          length,
+          filename: file.uri.pathSegments.last,
+        ),
+      );
+    }
+    final streamed = await request.send().timeout(_uploadTimeout);
+    final response = await http.Response.fromStream(streamed);
+    if (response.statusCode != 200) {
+      final detail =
+          _extractDetail(response.body) ?? 'Ошибка загрузки ${response.statusCode}';
+      throw ApiException(detail, statusCode: response.statusCode);
+    }
   }
 
   static Future<void> reindexUploaded() async {

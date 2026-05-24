@@ -80,7 +80,7 @@ async def start_index(req: IndexRequest, background: BackgroundTasks) -> IndexRe
         )
 
     # Атомарно переводим состояние в 'indexing'. Если уже идёт — отбиваем.
-    if index_after and not indexer.try_start():
+    if not indexer.try_start():
         return IndexResponse(status="busy", message="Индексация уже идёт")
 
     # После завершения — перезагружаем индекс в searcher'е, чтобы /search
@@ -108,7 +108,10 @@ async def upload_and_index(
     if not files:
         raise HTTPException(status_code=400, detail="Файлы не выбраны")
 
-    if not indexer.try_start():
+    # try_start() нужен только когда после загрузки сразу запускается индексация.
+    # Для промежуточных батчей (index_after=False) блокировать индексатор не нужно:
+    # это порождало бы deadlock — батч 1 занимал состояние и оно никогда не сбрасывалось.
+    if index_after and not indexer.try_start():
         return IndexResponse(status="busy", message="Индексация уже идёт")
 
     try:
@@ -145,7 +148,7 @@ async def upload_and_index(
     if not index_after:
         return IndexResponse(
             status="started",
-            message=f"Uploaded files: {saved}",
+            message=f"Загружено файлов: {saved}",
         )
 
     background.add_task(
