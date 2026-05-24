@@ -62,20 +62,32 @@ class DeviceFileScanner {
     }
   }
 
-  static Future<List<File>> scanSupportedFiles() async {
+  static Future<List<File>> scanSupportedFiles({
+    void Function(int scannedDirs, int foundFiles, String currentPath)?
+        onProgress,
+  }) async {
     final root = Directory(_rootPath);
     if (!await root.exists()) {
       return const [];
     }
 
     final files = <File>[];
-    await _walk(root, files);
+    final counters = _ScanCounters();
+    await _walk(root, files, counters, onProgress);
     files.sort((a, b) => a.path.compareTo(b.path));
     return files;
   }
 
-  static Future<void> _walk(Directory directory, List<File> files) async {
+  static Future<void> _walk(
+    Directory directory,
+    List<File> files,
+    _ScanCounters counters,
+    void Function(int scannedDirs, int foundFiles, String currentPath)?
+        onProgress,
+  ) async {
     if (_shouldIgnore(directory.path)) return;
+    counters.scannedDirs += 1;
+    onProgress?.call(counters.scannedDirs, counters.foundFiles, directory.path);
 
     Stream<FileSystemEntity> children;
     try {
@@ -87,12 +99,14 @@ class DeviceFileScanner {
     try {
       await for (final entity in children) {
         if (entity is Directory) {
-          await _walk(entity, files);
+          await _walk(entity, files, counters, onProgress);
         } else if (entity is File) {
           final path = entity.path;
           if (_shouldIgnore(path)) continue;
           if (!_supportedExtensions.contains(_extensionOf(path))) continue;
           files.add(entity);
+          counters.foundFiles += 1;
+          onProgress?.call(counters.scannedDirs, counters.foundFiles, path);
         }
       }
     } on FileSystemException {
@@ -110,4 +124,9 @@ class DeviceFileScanner {
     if (dot < 0) return '';
     return name.substring(dot);
   }
+}
+
+class _ScanCounters {
+  int scannedDirs = 0;
+  int foundFiles = 0;
 }

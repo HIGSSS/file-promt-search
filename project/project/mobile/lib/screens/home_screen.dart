@@ -5,6 +5,7 @@ import '../services/api_service.dart';
 import '../services/device_file_scanner.dart';
 import 'indexing_screen.dart';
 import 'results_screen.dart';
+import 'scan_upload_screen.dart';
 import 'settings_screen.dart';
 
 /// Главный экран: строка поиска, выбор типа файлов, запуск поиска
@@ -91,6 +92,14 @@ class _HomeScreenState extends State<HomeScreen> {
         return;
       }
 
+      if (!mounted) return;
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const ScanUploadScreen()),
+      );
+      return;
+
+      /*
       final files = await DeviceFileScanner.scanSupportedFiles();
       if (files.isEmpty) {
         if (mounted) {
@@ -109,6 +118,7 @@ class _HomeScreenState extends State<HomeScreen> {
         context,
         MaterialPageRoute(builder: (_) => const IndexingScreen()),
       );
+      */
     } on ApiException catch (e) {
       if (mounted) _showError(e.message);
     } finally {
@@ -156,7 +166,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Future<bool?> _confirmAutoIndex(int count) {
+  Future<bool?> confirmAutoIndex(int count) {
     return showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(

@@ -35,6 +35,7 @@ class ApiService {
   static const _indexTimeout = Duration(seconds: 10);
   static const _uploadTimeout = Duration(minutes: 10);
   static const _downloadTimeout = Duration(minutes: 2);
+  static const _uploadBatchSize = 20;
 
   static Future<Uri> _uri(String path) async {
     final base = await SettingsService.getServerUrl();
@@ -145,7 +146,11 @@ class ApiService {
 
   /// POST /upload-index — загрузка файлов, найденных автоматическим сканером
   /// Android-хранилища. Используется для сценария "искать по всем файлам".
-  static Future<void> uploadPathsAndIndex(List<File> files) async {
+  static Future<void> uploadPathsAndIndex(
+    List<File> files, {
+    void Function(int sentBytes, int totalBytes, String currentFile)?
+        onProgress,
+  }) async {
     if (files.isEmpty) {
       throw const ApiException('Поддерживаемые файлы не найдены.');
     }
@@ -153,13 +158,31 @@ class ApiService {
     await _withErrorHandling(() async {
       final uri = await _uri('/upload-index');
       final request = http.MultipartRequest('POST', uri);
+      var totalBytes = 0;
+      for (final file in files) {
+        if (!await file.exists()) continue;
+        totalBytes += await file.length();
+      }
+
+      var sentBytes = 0;
 
       for (final file in files) {
         if (!await file.exists()) continue;
+        final length = await file.length();
+        final stream = file.openRead().transform(
+              StreamTransformer<List<int>, List<int>>.fromHandlers(
+                handleData: (data, sink) {
+                  sentBytes += data.length;
+                  onProgress?.call(sentBytes, totalBytes, file.path);
+                  sink.add(data);
+                },
+              ),
+            );
         request.files.add(
-          await http.MultipartFile.fromPath(
+          http.MultipartFile(
             'files',
-            file.path,
+            http.ByteStream(stream),
+            length,
             filename: file.uri.pathSegments.last,
           ),
         );
@@ -185,6 +208,78 @@ class ApiService {
   }
 
   /// POST /index-uploads — повторная индексация уже загруженных копий.
+  static Future<void> uploadPathsAndIndexBatched(
+    List<File> files, {
+    void Function(int sentBytes, int totalBytes, String currentFile)?
+        onProgress,
+  }) async {
+    if (files.isEmpty) {
+      throw const ApiException('No files selected.');
+    }
+
+    await _withErrorHandling(() async {
+      final existingFiles = <File>[];
+      var totalBytes = 0;
+      for (final file in files) {
+        if (!await file.exists()) continue;
+        existingFiles.add(file);
+        totalBytes += await file.length();
+      }
+
+      if (existingFiles.isEmpty) {
+        throw const ApiException('No readable files found.');
+      }
+
+      var sentBytes = 0;
+      for (var start = 0; start < existingFiles.length; start += _uploadBatchSize) {
+        final batch = existingFiles.skip(start).take(_uploadBatchSize).toList();
+        final uri = await _uri('/upload-index').then(
+          (u) => u.replace(
+            queryParameters: {
+              'append': (start != 0).toString(),
+              'index_after': 'false',
+            },
+          ),
+        );
+        final request = http.MultipartRequest('POST', uri);
+
+        for (final file in batch) {
+          final length = await file.length();
+          final stream = file.openRead().transform(
+                StreamTransformer<List<int>, List<int>>.fromHandlers(
+                  handleData: (data, sink) {
+                    sentBytes += data.length;
+                    onProgress?.call(sentBytes, totalBytes, file.path);
+                    sink.add(data);
+                  },
+                ),
+              );
+          request.files.add(
+            http.MultipartFile(
+              'files',
+              http.ByteStream(stream),
+              length,
+              filename: file.uri.pathSegments.last,
+            ),
+          );
+        }
+
+        final streamed = await request.send().timeout(_uploadTimeout);
+        final response = await http.Response.fromStream(streamed);
+        if (response.statusCode != 200) {
+          final detail = _extractDetail(response.body) ??
+              'Upload error ${response.statusCode}';
+          throw ApiException(detail, statusCode: response.statusCode);
+        }
+      }
+
+      await reindexUploaded();
+      await SettingsService.setLastIndexedPath(
+        'Auto indexed files: ${existingFiles.length}',
+      );
+    });
+  }
+
   static Future<void> reindexUploaded() async {
     await _withErrorHandling(() async {
       final uri = await _uri('/index-uploads');

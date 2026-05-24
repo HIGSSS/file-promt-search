@@ -13,7 +13,7 @@ import shutil
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import BackgroundTasks, FastAPI, File, HTTPException, UploadFile
+from fastapi import BackgroundTasks, FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
@@ -80,7 +80,7 @@ async def start_index(req: IndexRequest, background: BackgroundTasks) -> IndexRe
         )
 
     # Атомарно переводим состояние в 'indexing'. Если уже идёт — отбиваем.
-    if not indexer.try_start():
+    if index_after and not indexer.try_start():
         return IndexResponse(status="busy", message="Индексация уже идёт")
 
     # После завершения — перезагружаем индекс в searcher'е, чтобы /search
@@ -97,6 +97,8 @@ async def start_index(req: IndexRequest, background: BackgroundTasks) -> IndexRe
 async def upload_and_index(
     background: BackgroundTasks,
     files: list[UploadFile] = File(...),
+    append: bool = Query(False),
+    index_after: bool = Query(True),
 ) -> IndexResponse:
     """Принимает файлы с телефона, сохраняет копии и индексирует их.
 
@@ -110,7 +112,7 @@ async def upload_and_index(
         return IndexResponse(status="busy", message="Индексация уже идёт")
 
     try:
-        if CURRENT_UPLOAD_DIR.exists():
+        if CURRENT_UPLOAD_DIR.exists() and not append:
             shutil.rmtree(CURRENT_UPLOAD_DIR)
         CURRENT_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -136,8 +138,15 @@ async def upload_and_index(
         if saved == 0:
             raise ValueError("Не удалось сохранить ни одного непустого файла")
     except Exception as exc:
-        indexer.mark_error(str(exc))
+        if index_after:
+            indexer.mark_error(str(exc))
         raise HTTPException(status_code=400, detail=str(exc))
+
+    if not index_after:
+        return IndexResponse(
+            status="started",
+            message=f"Uploaded files: {saved}",
+        )
 
     background.add_task(
         indexer.run_indexing,
