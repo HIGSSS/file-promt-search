@@ -198,23 +198,48 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (ctx) => AlertDialog(
         title: const Text('Индекс не готов'),
         content: Text(
-          '$message\n\nХотите просканировать устройство и построить индекс?',
+          '$message\n\n'
+          'Если файлы уже были загружены ранее — можно переиндексировать без повторной загрузки.\n'
+          'Иначе — просканируйте устройство заново.',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
             child: const Text('Отмена'),
           ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await _reindexUploaded();
+            },
+            child: const Text('Переиндексировать'),
+          ),
           FilledButton(
             onPressed: () {
               Navigator.pop(ctx);
               _scanDeviceAndIndex();
             },
-            child: const Text('Сканировать устройство'),
+            child: const Text('Сканировать заново'),
           ),
         ],
       ),
     );
+  }
+
+  Future<void> _reindexUploaded() async {
+    setState(() => _isLoading = true);
+    try {
+      await ApiService.reindexUploaded();
+      if (!mounted) return;
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const IndexingScreen()),
+      );
+    } on ApiException catch (e) {
+      if (mounted) _showError(e.message);
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   @override
