@@ -161,6 +161,7 @@ def search(
     query: str,
     file_type: str,
     top_k: int,
+    min_score: float = 0.5,
 ) -> list[SearchResult]:
     """Семантический поиск с агрегацией и гибридным скорингом.
 
@@ -169,6 +170,11 @@ def search(
         'documents' → поиск только по text_index, типы pdf/docx/txt
         'other'     → поиск только по text_index, типы csv/xlsx/other
         'all'       → оба индекса, все типы
+
+    Стратегия выдачи:
+        Возвращаются все результаты с score >= min_score.
+        Если таких меньше top_k — добавляются лучшие результаты ниже порога,
+        пока не наберётся top_k (или не кончатся кандидаты).
     """
     with _lock:
         media_index = _media_index
@@ -179,7 +185,9 @@ def search(
     if media_index is None or text_index is None:
         raise RuntimeError("Индекс не загружен")
 
-    k_candidates = top_k * CANDIDATE_MULTIPLIER
+    # Ищем достаточно глубоко, чтобы не пропустить результаты выше порога.
+    # _search_index ограничит k до index.ntotal автоматически.
+    k_candidates = max(top_k * CANDIDATE_MULTIPLIER, 500)
 
     # Определяем, в какие индексы идём и с какими фильтрами типов.
     use_media = file_type in ("media", "all")
@@ -283,13 +291,18 @@ def search(
 
         scored.append((score, entry["meta"]))
 
-    # Сортируем по убыванию скора, фильтруем удалённые файлы, берём top_k.
+    # Сортируем по убыванию скора, фильтруем удалённые файлы.
     scored.sort(key=lambda x: x[0], reverse=True)
 
+    # Стратегия выдачи:
+    #   1. Берём все кандидаты с score >= min_score.
+    #   2. Если их меньше top_k — дополняем лучшими результатами ниже порога
+    #      до top_k (чтобы экран никогда не был пустым при слабом запросе).
+    above = [(s, m) for s, m in scored if s >= min_score]
+    candidates = above if len(above) >= top_k else scored[:top_k]
+
     results: list[SearchResult] = []
-    for score, meta in scored:
-        if len(results) >= top_k:
-            break
+    for score, meta in candidates:
         fp = meta["filepath"]
         # os.path.exists — дешёвый системный вызов; делаем после сортировки,
         # чтобы не проверять существование у кандидатов, которые и так отсеются.
@@ -300,9 +313,9 @@ def search(
                 filepath=fp,
                 filename=meta.get("filename", os.path.basename(fp)),
                 type=meta.get("type", "other"),
-                # Обрезаем скор сверху на 1.0 — с бонусом он может выйти за диапазон,
-                # а UI ожидает [0..1] для корректного процента.
-                score=min(float(score), 1.0),
+                # Зажимаем в [0..1]: косинусное сходство может быть отрицательным
+                # (противоположный смысл), бонус может поднять выше 1.0.
+                score=max(0.0, min(float(score), 1.0)),
                 text_preview=meta.get("text_preview"),
             )
         )
@@ -310,9 +323,11 @@ def search(
     return results
 
 
-def measure_search(query: str, file_type: str, top_k: int) -> tuple[list[SearchResult], int]:
+def measure_search(
+    query: str, file_type: str, top_k: int, min_score: float = 0.5
+) -> tuple[list[SearchResult], int]:
     """То же, что search(), но возвращает (results, elapsed_ms) для /search ответа."""
     t0 = time.perf_counter()
-    results = search(query, file_type, top_k)
+    results = search(query, file_type, top_k, min_score)
     elapsed_ms = int((time.perf_counter() - t0) * 1000)
     return results, elapsed_ms

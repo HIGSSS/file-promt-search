@@ -8,14 +8,39 @@ import '../services/api_service.dart';
 
 /// Карточка результата поиска.
 ///
-/// - Для изображений показывает превью (Image.file) 60×60 с фолбэком на иконку.
+/// - Для изображений скачивает превью с backend'а и показывает миниатюру 60×60.
+///   Скачивание происходит один раз: повторные отображения берут файл из кеша.
 /// - Для остальных типов — иконка.
 /// - Score отображается как процент цветным бейджем (зелёный / жёлтый / серый).
 /// - Тап по карточке открывает файл через нативное приложение.
-class FileCard extends StatelessWidget {
+class FileCard extends StatefulWidget {
   final SearchResult result;
 
   const FileCard({super.key, required this.result});
+
+  @override
+  State<FileCard> createState() => _FileCardState();
+}
+
+class _FileCardState extends State<FileCard> {
+  String? _localImagePath;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.result.type == 'image') {
+      _loadThumbnail();
+    }
+  }
+
+  Future<void> _loadThumbnail() async {
+    try {
+      final path = await ApiService.downloadFile(widget.result);
+      if (mounted) setState(() => _localImagePath = path);
+    } catch (_) {
+      // Сеть недоступна или файл удалён — показываем иконку.
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -30,7 +55,7 @@ class FileCard extends StatelessWidget {
             children: [
               _buildPreview(),
               const SizedBox(width: 12),
-              Expanded(child: _buildMeta(context)),
+              Expanded(child: _buildMeta()),
               const SizedBox(width: 8),
               _buildScoreBadge(),
             ],
@@ -42,29 +67,31 @@ class FileCard extends StatelessWidget {
 
   Widget _buildPreview() {
     const size = 60.0;
-    if (result.type == 'image' && File(result.filepath).existsSync()) {
-      // Image.file может упасть на битых файлах или на файлах, к которым
-      // потерян доступ (пользователь удалил после индексации). errorBuilder
-      // ловит это и показывает иконку вместо крэша.
-      return SizedBox(
-        width: size,
-        height: size,
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(6),
-          child: Image.file(
-            File(result.filepath),
-            width: size,
-            height: size,
-            fit: BoxFit.cover,
-            errorBuilder: (_, __, ___) => _iconBox(Icons.broken_image),
+    if (widget.result.type == 'image') {
+      final path = _localImagePath;
+      if (path != null) {
+        return SizedBox(
+          width: size,
+          height: size,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: Image.file(
+              File(path),
+              width: size,
+              height: size,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => _iconBox(Icons.broken_image),
+            ),
           ),
-        ),
-      );
+        );
+      }
+      // Пока идёт загрузка — показываем плейсхолдер.
+      return _iconBox(Icons.image, loading: true);
     }
-    return _iconBox(_iconForType(result.type));
+    return _iconBox(_iconForType(widget.result.type));
   }
 
-  Widget _iconBox(IconData icon) {
+  Widget _iconBox(IconData icon, {bool loading = false}) {
     return Container(
       width: 60,
       height: 60,
@@ -72,7 +99,12 @@ class FileCard extends StatelessWidget {
         color: Colors.grey.shade200,
         borderRadius: BorderRadius.circular(6),
       ),
-      child: Icon(icon, size: 28, color: Colors.grey.shade700),
+      child: loading
+          ? const Padding(
+              padding: EdgeInsets.all(18),
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : Icon(icon, size: 28, color: Colors.grey.shade700),
     );
   }
 
@@ -92,13 +124,13 @@ class FileCard extends StatelessWidget {
     }
   }
 
-  Widget _buildMeta(BuildContext context) {
-    final preview = result.textPreview;
+  Widget _buildMeta() {
+    final preview = widget.result.textPreview;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          result.filename,
+          widget.result.filename,
           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
@@ -116,8 +148,8 @@ class FileCard extends StatelessWidget {
   }
 
   Widget _buildScoreBadge() {
-    final percent = (result.score * 100).round();
-    final color = _colorForScore(result.score);
+    final percent = (widget.result.score * 100).round();
+    final color = _colorForScore(widget.result.score);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
@@ -136,7 +168,6 @@ class FileCard extends StatelessWidget {
   }
 
   Color _colorForScore(double score) {
-    // Пороги из §5.4 ТЗ.
     if (score > 0.7) return Colors.green;
     if (score > 0.5) return Colors.orange;
     return Colors.grey;
@@ -144,9 +175,8 @@ class FileCard extends StatelessWidget {
 
   Future<void> _openFile(BuildContext context) async {
     try {
-      final localPath = File(result.filepath).existsSync()
-          ? result.filepath
-          : await ApiService.downloadFile(result);
+      // Если превью уже скачано — открываем его напрямую, не качаем снова.
+      final localPath = _localImagePath ?? await ApiService.downloadFile(widget.result);
       final opened = await OpenFilex.open(localPath);
       if (opened.type != ResultType.done && context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

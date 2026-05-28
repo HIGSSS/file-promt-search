@@ -10,7 +10,12 @@ import 'indexing_screen.dart';
 enum _Stage { scanning, confirming, uploading, error }
 
 class ScanUploadScreen extends StatefulWidget {
-  const ScanUploadScreen({super.key});
+  final String rootPath;
+
+  const ScanUploadScreen({
+    super.key,
+    required this.rootPath,
+  });
 
   @override
   State<ScanUploadScreen> createState() => _ScanUploadScreenState();
@@ -47,6 +52,7 @@ class _ScanUploadScreenState extends State<ScanUploadScreen> {
   Future<void> _run() async {
     try {
       final files = await DeviceFileScanner.scanSupportedFiles(
+        rootPath: widget.rootPath,
         onProgress: (dirs, found, path) {
           if (!mounted) return;
           setState(() {
@@ -199,12 +205,22 @@ class _ScanUploadScreenState extends State<ScanUploadScreen> {
       // Во время загрузки блокируем системную кнопку «Назад»,
       // чтобы обрыв соединения не воспринимался как потеря сервера.
       canPop: _stage != _Stage.uploading,
-      onPopInvoked: (didPop) {
+      onPopInvokedWithResult: (didPop, _) {
         if (!didPop) _showLeaveWarning();
       },
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Сканирование'),
+          title: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Сканирование'),
+              Text(
+                _shortPath(widget.rootPath),
+                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.normal),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
           automaticallyImplyLeading: _stage == _Stage.error,
         ),
         body: Padding(
@@ -262,6 +278,14 @@ class _ScanUploadScreenState extends State<ScanUploadScreen> {
       primary: 'Папок: $_scannedDirs · файлов: $_foundFiles',
       secondary: _currentPath,
     );
+  }
+
+  /// Показывает последние два сегмента пути, чтобы заголовок не был слишком длинным.
+  /// /storage/emulated/0/DCIM → …/DCIM
+  static String _shortPath(String path) {
+    final parts = path.split('/').where((p) => p.isNotEmpty).toList();
+    if (parts.length <= 2) return path;
+    return '…/${parts.skip(parts.length - 2).join('/')}';
   }
 
   static String _formatBytes(int bytes) {

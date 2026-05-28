@@ -198,7 +198,7 @@ async def search_endpoint(req: SearchRequest) -> SearchResponse:
         )
     try:
         results, elapsed_ms = searcher.measure_search(
-            req.query, req.file_type, req.top_k,
+            req.query, req.file_type, req.top_k, req.min_score,
         )
     except RuntimeError as exc:
         # Гонка: индекс выгрузили между is_loaded() и search().

@@ -144,69 +144,6 @@ class ApiService {
     });
   }
 
-  /// POST /upload-index — загрузка файлов, найденных автоматическим сканером
-  /// Android-хранилища. Используется для сценария "искать по всем файлам".
-  static Future<void> uploadPathsAndIndex(
-    List<File> files, {
-    void Function(int sentBytes, int totalBytes, String currentFile)?
-        onProgress,
-  }) async {
-    if (files.isEmpty) {
-      throw const ApiException('Поддерживаемые файлы не найдены.');
-    }
-
-    await _withErrorHandling(() async {
-      final uri = await _uri('/upload-index');
-      final request = http.MultipartRequest('POST', uri);
-      var totalBytes = 0;
-      for (final file in files) {
-        if (!await file.exists()) continue;
-        totalBytes += await file.length();
-      }
-
-      var sentBytes = 0;
-
-      for (final file in files) {
-        if (!await file.exists()) continue;
-        final length = await file.length();
-        final stream = file.openRead().transform(
-              StreamTransformer<List<int>, List<int>>.fromHandlers(
-                handleData: (data, sink) {
-                  sentBytes += data.length;
-                  onProgress?.call(sentBytes, totalBytes, file.path);
-                  sink.add(data);
-                },
-              ),
-            );
-        request.files.add(
-          http.MultipartFile(
-            'files',
-            http.ByteStream(stream),
-            length,
-            filename: file.uri.pathSegments.last,
-          ),
-        );
-      }
-
-      if (request.files.isEmpty) {
-        throw const ApiException('Не удалось прочитать найденные файлы.');
-      }
-
-      final streamed = await request.send().timeout(_uploadTimeout);
-      final response = await http.Response.fromStream(streamed);
-
-      if (response.statusCode != 200) {
-        final detail =
-            _extractDetail(response.body) ?? 'Ошибка ${response.statusCode}';
-        throw ApiException(detail, statusCode: response.statusCode);
-      }
-
-      await SettingsService.setLastIndexedPath(
-        'Автоматически найдено файлов: ${request.files.length}',
-      );
-    });
-  }
-
   /// Загружает файлы батчами и запускает индексацию на сервере.
   ///
   /// [precomputedTotalBytes] — суммарный размер файлов, посчитанный заранее
@@ -346,13 +283,14 @@ class ApiService {
 
   /// POST /search — семантический поиск.
   ///
-  /// Возвращает пустой список, если ничего не найдено (это не ошибка).
-  /// Бросает ApiException(statusCode=400), если индекс не построен —
-  /// UI показывает отдельное сообщение для этого случая.
+  /// Возвращает все результаты с score >= minScore (обычно 0.5).
+  /// Если таких меньше topK — дополняет лучшими результатами ниже порога.
+  /// Бросает ApiException(statusCode=400), если индекс не построен.
   static Future<List<SearchResult>> search(
     String query,
     String fileType, {
-    int topK = 10,
+    int topK = 20,
+    double minScore = 0.5,
   }) async {
     return _withErrorHandling(() async {
       final uri = await _uri('/search');
@@ -364,6 +302,7 @@ class ApiService {
               'query': query,
               'file_type': fileType,
               'top_k': topK,
+              'min_score': minScore,
             }),
           )
           .timeout(_searchTimeout);
@@ -387,8 +326,23 @@ class ApiService {
 
   /// GET /download — скачивает backend-копию результата во временную папку,
   /// чтобы Android мог открыть её локальным приложением.
+  /// Повторные запросы для уже скачанного файла возвращают путь из кеша.
   static Future<String> downloadFile(SearchResult result) async {
     return _withErrorHandling(() async {
+      final dir = await getTemporaryDirectory();
+      final cacheDir = Directory('${dir.path}/intelligent_file_search');
+      if (!await cacheDir.exists()) {
+        await cacheDir.create(recursive: true);
+      }
+
+      final filename = _safeLocalFilename(result.filename);
+      final file = File('${cacheDir.path}/$filename');
+
+      // Возвращаем кешированный файл, если он уже был скачан ранее.
+      if (await file.exists() && await file.length() > 0) {
+        return file.path;
+      }
+
       final uri = await _uri('/download').then(
         (u) => u.replace(queryParameters: {'path': result.filepath}),
       );
@@ -400,14 +354,6 @@ class ApiService {
         throw ApiException(detail, statusCode: response.statusCode);
       }
 
-      final dir = await getTemporaryDirectory();
-      final cacheDir = Directory('${dir.path}/intelligent_file_search');
-      if (!await cacheDir.exists()) {
-        await cacheDir.create(recursive: true);
-      }
-
-      final filename = _safeLocalFilename(result.filename);
-      final file = File('${cacheDir.path}/$filename');
       await file.writeAsBytes(response.bodyBytes, flush: true);
       return file.path;
     });

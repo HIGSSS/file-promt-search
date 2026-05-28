@@ -16,6 +16,9 @@ project/project/mobile/.dart_tool/
 project/project/mobile/.flutter-plugins
 project/project/mobile/.flutter-plugins-dependencies
 
+# Claude Code (у каждого разработчика своя копия, не коммитится)
+.claude/
+
 # IDE
 .idea/
 .vscode/

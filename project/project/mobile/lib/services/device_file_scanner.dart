@@ -61,10 +61,11 @@ class DeviceFileScanner {
   }
 
   static Future<List<File>> scanSupportedFiles({
+    String rootPath = _rootPath,
     void Function(int scannedDirs, int foundFiles, String currentPath)?
         onProgress,
   }) async {
-    final root = Directory(_rootPath);
+    final root = Directory(rootPath);
     if (!await root.exists()) return const [];
 
     final files = <File>[];
