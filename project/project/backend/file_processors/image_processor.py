@@ -17,7 +17,7 @@ import torch
 from PIL import Image
 
 from config import OCR_MIN_CHARS
-from models import get_ocr, get_sbert, get_siglip
+from models import DEVICE, get_ocr, get_sbert, get_siglip
 from utils import l2_normalize, safe_preview
 
 logger = logging.getLogger(__name__)
@@ -27,8 +27,8 @@ def _encode_image_siglip(image: Image.Image) -> np.ndarray:
     """Получает L2-нормализованный image-вектор SigLIP (dim=768)."""
     model, processor = get_siglip()
     inputs = processor(images=image, return_tensors="pt")
-    # torch.no_grad() критичен для inference: иначе autograd копит граф
-    # и RAM течёт при индексации большой папки.
+    # Переносим тензоры на то же устройство где лежит модель (CPU или CUDA).
+    inputs = {k: v.to(DEVICE) for k, v in inputs.items()}
     with torch.no_grad():
         features = model.get_image_features(**inputs)
     vec = features[0].cpu().numpy()
@@ -36,30 +36,17 @@ def _encode_image_siglip(image: Image.Image) -> np.ndarray:
 
 
 def _run_ocr(path: Path) -> str:
-    """Прогоняет PaddleOCR и возвращает объединённый текст.
+    """Прогоняет EasyOCR и возвращает объединённый текст.
 
-    PaddleOCR.ocr возвращает список списков [bbox, (text, confidence)]
-    по страницам. Для одиночного изображения обрабатываем только первую страницу.
+    EasyOCR возвращает список (bbox, text, confidence).
     """
-    ocr = get_ocr()
+    reader = get_ocr()
     try:
-        raw = ocr.ocr(str(path), cls=True)
+        results = reader.readtext(str(path))
     except Exception as exc:
         logger.warning("OCR упал на %s: %s", path, exc)
         return ""
-    if not raw or not raw[0]:
-        return ""
-    lines: list[str] = []
-    for line in raw[0]:
-        # Структура элемента: [bbox, (text, confidence)]
-        # Защищаемся от изменения API между версиями PaddleOCR.
-        try:
-            text = line[1][0]
-            if text:
-                lines.append(text)
-        except (IndexError, TypeError):
-            continue
-    return " ".join(lines)
+    return " ".join(text for _, text, _ in results if text)
 
 
 def _encode_text_sbert(text: str) -> np.ndarray:

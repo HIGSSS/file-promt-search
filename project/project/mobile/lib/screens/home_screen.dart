@@ -84,19 +84,20 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _startIndexing() async {
-    // На телефоне backend не видит Android-пути. Поэтому выбираем файлы
-    // через SAF/file_picker и отправляем их на сервер, где они сохраняются
-    // локально и уже затем индексируются.
     final selection = await FilePicker.platform.pickFiles(
       allowMultiple: true,
       withReadStream: true,
       type: FileType.any,
     );
     if (selection == null || selection.files.isEmpty) return;
+    if (!mounted) return;
+
+    final append = await _askAppendOrReplace();
+    if (append == null || !mounted) return;
 
     setState(() => _isLoading = true);
     try {
-      await ApiService.uploadAndIndex(selection.files);
+      await ApiService.uploadAndIndex(selection.files, append: append);
       if (!mounted) return;
       Navigator.push(
         context,
@@ -107,6 +108,44 @@ class _HomeScreenState extends State<HomeScreen> {
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  Future<void> _pickFolderAndIndex() async {
+    final dirPath = await FilePicker.platform.getDirectoryPath();
+    if (dirPath == null || !mounted) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ScanUploadScreen(rootPath: dirPath),
+      ),
+    );
+  }
+
+  Future<bool?> _askAppendOrReplace() {
+    return showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Режим индексации'),
+        content: const Text(
+          'Добавить файлы к существующему индексу '
+          'или заменить его новыми файлами?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Отмена'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Заменить'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Добавить'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _scanDeviceAndIndex() async {
@@ -304,8 +343,14 @@ class _HomeScreenState extends State<HomeScreen> {
           const SizedBox(height: 8),
           TextButton.icon(
             onPressed: _isLoading ? null : _startIndexing,
-            icon: const Icon(Icons.folder_open),
+            icon: const Icon(Icons.file_open),
             label: const Text('Выбрать файлы вручную'),
+          ),
+          const SizedBox(height: 4),
+          TextButton.icon(
+            onPressed: _isLoading ? null : _pickFolderAndIndex,
+            icon: const Icon(Icons.folder_open),
+            label: const Text('Выбрать папку'),
           ),
         ],
       ),

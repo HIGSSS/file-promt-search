@@ -21,6 +21,7 @@ from __future__ import annotations
 import logging
 import os
 import pickle
+import re
 import threading
 import time
 from typing import Any, Optional
@@ -35,15 +36,36 @@ from config import (
     IMAGE_WEIGHT,
     MEDIA_INDEX_PATH,
     MEDIA_META_PATH,
+    MEDIA_MIN_SCORE,
+    SBERT_QUERY_PREFIX,
+    SIGLIP_SCORE_MIN,
+    SIGLIP_SCORE_RANGE,
     TEXT_INDEX_PATH,
     TEXT_META_PATH,
+    TEXT_MIN_SCORE,
     TEXT_WEIGHT,
 )
-from models import get_sbert, get_siglip
+from models import DEVICE, get_sbert, get_siglip, translate_to_english
 from schemas import SearchResult
 from utils import l2_normalize
 
 logger = logging.getLogger(__name__)
+
+# Паттерн «не-буква/цифра» для обоих алфавитов — используется как граница слова.
+_NON_WORD = re.compile(r'[^а-яёА-ЯЁa-zA-Z0-9]')
+
+
+def _whole_word_match(query: str, text: str) -> bool:
+    """True если query встречается в text как отдельное слово, а не подстрока.
+
+    Стандартный \\b не работает с кириллицей, поэтому проверяем окружение
+    вручную: символ перед и после совпадения должен быть не буквой/цифрой
+    или границей строки.
+    """
+    if not query or not text:
+        return False
+    pattern = r'(?<![а-яёА-ЯЁa-zA-Z0-9])' + re.escape(query) + r'(?![а-яёА-ЯЁa-zA-Z0-9])'
+    return bool(re.search(pattern, text))
 
 # Лок разделяет загрузку индекса и его использование: reload() не должен
 # подменять индексы посередине чужого search(). RLock не нужен — поиск
@@ -103,9 +125,30 @@ def is_loaded() -> bool:
 
 
 def _encode_query_siglip(query: str) -> np.ndarray:
-    """Текст → SigLIP text-вектор (dim=768) для поиска по media_index."""
+    """Текст → SigLIP text-вектор (dim=768) для поиска по media_index.
+
+    ВАЖНО: padding='max_length' обязателен — SigLIP обучался с фиксированной
+    длиной 64 токена. С padding=True короткие запросы дают некорректные
+    векторы (отрицательное cosine-сходство вместо ожидаемого ~0.09).
+    """
+    english_query = translate_to_english(query)
+    # Шаблон "a photo of X" значительно улучшает cosine-сходство с SigLIP:
+    # диагностика показала "cat"→3%, "a photo of a cat"→14.5% для той же фото.
+    raw = english_query.strip().rstrip(".").lower()
+    # Добавляем артикль "a/an" перед существительными если нет предлогов
+    template = (
+        f"a photo of {raw}"
+        if not any(raw.startswith(p) for p in ("a ", "an ", "the ", "photo", "image", "picture"))
+        else raw
+    )
     model, processor = get_siglip()
-    inputs = processor(text=[query], return_tensors="pt", padding=True, truncation=True)
+    inputs = processor(
+        text=[template],
+        return_tensors="pt",
+        padding="max_length",
+        truncation=True,
+    )
+    inputs = {k: v.to(DEVICE) for k, v in inputs.items()}
     with torch.no_grad():
         features = model.get_text_features(**inputs)
     return l2_normalize(features[0].cpu().numpy())
@@ -114,7 +157,8 @@ def _encode_query_siglip(query: str) -> np.ndarray:
 def _encode_query_sbert(query: str) -> np.ndarray:
     """Текст → SBERT-вектор (dim=384) для поиска по text_index."""
     sbert = get_sbert()
-    vec = sbert.encode(query, convert_to_numpy=True, show_progress_bar=False)
+    to_encode = SBERT_QUERY_PREFIX + query if SBERT_QUERY_PREFIX else query
+    vec = sbert.encode(to_encode, convert_to_numpy=True, show_progress_bar=False)
     return l2_normalize(vec)
 
 
@@ -131,7 +175,6 @@ def _search_index(
     # FAISS требует (1, D) float32 contiguous.
     q = np.ascontiguousarray(query_vec.reshape(1, -1).astype(np.float32))
     sims, ids = index.search(q, k_effective)
-    # sims/ids имеют форму (1, k). id == -1 означает "нет результата".
     return [
         (int(idx), float(sim))
         for idx, sim in zip(ids[0], sims[0])
@@ -190,13 +233,20 @@ def search(
     k_candidates = max(top_k * CANDIDATE_MULTIPLIER, 500)
 
     # Определяем, в какие индексы идём и с какими фильтрами типов.
-    use_media = file_type in ("media", "all")
+    use_media = file_type in ("media", "documents", "all")
     use_text = file_type in ("documents", "other", "all")
 
     if file_type == "documents":
-        text_type_filter: Optional[set[str]] = {"pdf", "docx", "txt"}
+        text_type_filter: Optional[set[str]] = {
+            "pdf", "docx", "txt", "pptx", "odt", "rtf", "md", "markdown",
+        }
     elif file_type == "other":
-        text_type_filter = {"csv", "xlsx", "other"}
+        # Всё что не медиа (image/video — в media_index) и не документы.
+        # Тип "other" — это файлы с нераспознанным расширением (zip, apk и т.д.),
+        # которые индексируются только по имени через encode_filename.
+        text_type_filter = {
+            "csv", "xlsx", "xls", "json", "xml", "html", "htm", "log", "other",
+        }
     else:
         text_type_filter = None  # media или all — не фильтруем
 
@@ -210,6 +260,8 @@ def search(
         for fid, sim in media_hits:
             rec = media_meta.get(fid)
             if rec is None:
+                continue
+            if file_type == "documents" and rec.get("type") != "pdf":
                 continue
             fp = rec["filepath"]
             entry = aggregated.setdefault(
@@ -241,8 +293,10 @@ def search(
                 if rec.get("text_preview"):
                     entry["meta"] = rec
 
-    # Детерминированная поддержка точных запросов по имени/превью. Векторный
-    # поиск может не поднять технические id вроде IMG_0002 в top-N кандидатов.
+    # Точный поиск по имени файла: поднимает файлы вроде IMG_0002.jpg
+    # которые векторный поиск не находит в top-N кандидатов.
+    # ВАЖНО: используем целое слово, а не подстроку — иначе «кот» совпадает
+    # с «который» и все документы с этим словом получают score 0.95.
     if query_lower := query.lower():
         meta_sources: list[dict[int, dict[str, Any]]] = []
         if use_media:
@@ -255,16 +309,19 @@ def search(
                     if rec.get("type") not in text_type_filter:
                         continue
                 filename = rec.get("filename", "")
-                preview = rec.get("text_preview") or ""
-                if query_lower not in filename.lower() and query_lower not in preview.lower():
+                # Только по имени файла (целое слово) — не по содержимому превью.
+                if not _whole_word_match(query_lower, filename.lower()):
                     continue
                 fp = rec["filepath"]
                 entry = aggregated.setdefault(
                     fp, {"image_sim": None, "text_sim": None, "meta": rec}
                 )
                 prev = entry["text_sim"]
-                if prev is None or prev < 0.95:
-                    entry["text_sim"] = 0.95
+                # В режиме «other» поиск идёт в первую очередь по имени:
+                # точное совпадение в названии = максимальный скор.
+                boost = 0.98 if file_type == "other" else 0.95
+                if prev is None or prev < boost:
+                    entry["text_sim"] = boost
                     entry["meta"] = rec
 
     # Применяем формулу скоринга.
@@ -272,22 +329,31 @@ def search(
     for fp, entry in aggregated.items():
         image_sim = entry["image_sim"]
         text_sim = entry["text_sim"]
-        if image_sim is not None and text_sim is not None:
-            # Файл имеет оба вектора: комбинированный скор.
-            score = IMAGE_WEIGHT * image_sim + TEXT_WEIGHT * text_sim
-        elif image_sim is not None:
-            score = image_sim
-        else:
-            # text_sim гарантированно не None (иначе записи бы не было).
-            score = text_sim  # type: ignore[assignment]
 
-        # Бонус за подстрочное совпадение в превью.
-        preview = entry["meta"].get("text_preview") or ""
-        if query_lower and query_lower in preview.lower():
-            score += EXACT_MATCH_BONUS
-        filename = entry["meta"].get("filename") or os.path.basename(fp)
-        if query_lower and query_lower in filename.lower():
-            score += EXACT_MATCH_BONUS
+        # SigLIP text-image cosines: [0, ~0.35] для хорошего совпадения,
+        # тогда как SBERT даёт 0.5–0.9. Нормализуем SigLIP в [0, 1].
+        scaled_image = None
+        if image_sim is not None:
+            scaled_image = max(0.0, min(image_sim / SIGLIP_SCORE_RANGE, 1.0))
+
+        if scaled_image is not None and text_sim is not None:
+            # Зажимаем text_sim в [0, 1]: отрицательные сходства возникают
+            # при несовместимости модели (старый индекс + новый SBERT).
+            # Они не должны гасить корректный image_sim.
+            score = IMAGE_WEIGHT * scaled_image + TEXT_WEIGHT * max(0.0, text_sim)
+        elif scaled_image is not None:
+            score = scaled_image
+        else:
+            score = max(0.0, text_sim)  # type: ignore[assignment]
+
+        # Бонус только за целое слово в имени файла или превью.
+        if query_lower:
+            preview = entry["meta"].get("text_preview") or ""
+            filename_str = entry["meta"].get("filename") or os.path.basename(fp)
+            if _whole_word_match(query_lower, preview.lower()):
+                score += EXACT_MATCH_BONUS
+            if _whole_word_match(query_lower, filename_str.lower()):
+                score += EXACT_MATCH_BONUS
 
         scored.append((score, entry["meta"]))
 

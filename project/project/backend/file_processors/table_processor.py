@@ -10,23 +10,13 @@ import logging
 from pathlib import Path
 from typing import Any, Optional
 
-import numpy as np
-
-from models import get_sbert
-from utils import l2_normalize, safe_preview
+from file_processors.text_processor import encode_text_chunks
+from utils import safe_preview
 
 logger = logging.getLogger(__name__)
 
 # Сколько строк данных брать с каждого листа/CSV. Из ТЗ.
 TABLE_SAMPLE_ROWS = 50
-
-
-def _encode(text: str) -> Optional[np.ndarray]:
-    if not text.strip():
-        return None
-    sbert = get_sbert()
-    vec = sbert.encode(text, convert_to_numpy=True, show_progress_bar=False)
-    return l2_normalize(vec)
 
 
 def process_csv(path: Path) -> Optional[dict[str, Any]]:
@@ -42,7 +32,13 @@ def process_csv(path: Path) -> Optional[dict[str, Any]]:
         return None
 
     try:
-        df = pd.read_csv(path, nrows=TABLE_SAMPLE_ROWS, on_bad_lines="skip")
+        df = pd.read_csv(
+            path,
+            nrows=TABLE_SAMPLE_ROWS,
+            on_bad_lines="skip",
+            sep=None,
+            engine="python",
+        )
     except Exception as exc:
         logger.warning("Не удалось прочитать CSV %s: %s", path, exc)
         return None
@@ -54,12 +50,12 @@ def process_csv(path: Path) -> Optional[dict[str, Any]]:
     data_text = df.to_string(index=False)
     combined = f"{columns_line}\n{data_text}"
 
-    text_vec = _encode(combined)
-    if text_vec is None:
+    text_chunks = encode_text_chunks(combined, label_prefix="csv")
+    if not text_chunks:
         return None
 
     return {
-        "text_vec": text_vec,
+        "text_chunks": text_chunks,
         "text_preview": safe_preview(columns_line, max_chars=150),
     }
 
@@ -107,12 +103,12 @@ def process_xlsx(path: Path) -> Optional[dict[str, Any]]:
     if not combined.strip():
         return None
 
-    text_vec = _encode(combined)
-    if text_vec is None:
+    text_chunks = encode_text_chunks(combined, label_prefix="xlsx")
+    if not text_chunks:
         return None
 
     preview = "Листы: " + ", ".join(sheet_names)
     return {
-        "text_vec": text_vec,
+        "text_chunks": text_chunks,
         "text_preview": safe_preview(preview, max_chars=150),
     }

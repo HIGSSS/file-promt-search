@@ -9,9 +9,15 @@
 from __future__ import annotations
 
 import logging
+import os
 import shutil
 from contextlib import asynccontextmanager
 from pathlib import Path
+
+# Отключаем Intel MKL-DNN в PaddleOCR до любых импортов PaddlePaddle.
+# Без этого oneDNN-контекст конфликтует с уже инициализированным PyTorch.
+os.environ["FLAGS_use_mkldnn"] = "0"
+os.environ["FLAGS_mkldnn_cache_capacity"] = "0"
 
 from fastapi import BackgroundTasks, FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -19,7 +25,7 @@ from fastapi.responses import FileResponse
 
 import indexer
 import searcher
-from config import CURRENT_UPLOAD_DIR, STORAGE_DIR, UPLOADS_DIR
+from config import CURRENT_UPLOAD_DIR, MEDIA_MIN_SCORE, STORAGE_DIR, TEXT_MIN_SCORE, UPLOADS_DIR
 from models import warmup
 from schemas import (
     IndexRequest,
@@ -197,8 +203,13 @@ async def search_endpoint(req: SearchRequest) -> SearchResponse:
             detail="Индекс не найден. Сначала запустите индексацию.",
         )
     try:
+        # Медиа-поиск использует SigLIP (raw cosine 0.05–0.35), текстовый —
+        # SBERT (0.5–0.9). Разные пороги нужны чтобы фото вообще появлялись.
+        min_score = (
+            MEDIA_MIN_SCORE if req.file_type in ("media", "all") else TEXT_MIN_SCORE
+        )
         results, elapsed_ms = searcher.measure_search(
-            req.query, req.file_type, req.top_k, req.min_score,
+            req.query, req.file_type, req.top_k, min_score,
         )
     except RuntimeError as exc:
         # Гонка: индекс выгрузили между is_loaded() и search().

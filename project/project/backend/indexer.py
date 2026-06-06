@@ -180,6 +180,7 @@ def _process_one(
 
     image_vec = result.get("image_vec")
     text_vec = result.get("text_vec")
+    text_chunks = result.get("text_chunks") or []
 
     if image_vec is not None:
         _add_to_index(
@@ -193,6 +194,27 @@ def _process_one(
                 "type": file_type,
                 "text_preview": preview,
                 "vec_kind": "image",
+            },
+            path=path,
+        )
+
+    for chunk_no, chunk in enumerate(text_chunks, start=1):
+        chunk_vec = chunk.get("text_vec")
+        if chunk_vec is None:
+            continue
+        _add_to_index(
+            index=text_index,
+            meta=text_meta,
+            vec=chunk_vec,
+            expected_dim=SBERT_DIM,
+            record={
+                "filepath": filepath_str,
+                "filename": filename,
+                "type": file_type,
+                "text_preview": chunk.get("text_preview") or preview,
+                "vec_kind": chunk.get("vec_kind", "text_chunk"),
+                "chunk_no": chunk_no,
+                "chunk_label": chunk.get("chunk_label", ""),
             },
             path=path,
         )

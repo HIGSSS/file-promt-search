@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 class DeviceFileScanner {
   static const _channel = MethodChannel('intelligent_file_search/storage');
   static const _rootPath = '/storage/emulated/0';
+  static const defaultRootPath = _rootPath;
 
   // Защита от OOM: не собираем больше этого числа файлов за один обход.
   static const _maxFiles = 20000;
@@ -31,6 +32,16 @@ class DeviceFileScanner {
     '.csv',
     '.xlsx',
     '.xls',
+    '.pptx',
+    '.odt',
+    '.rtf',
+    '.md',
+    '.markdown',
+    '.json',
+    '.xml',
+    '.html',
+    '.htm',
+    '.log',
   };
 
   static final _ignoredPathParts = {

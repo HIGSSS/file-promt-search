@@ -20,8 +20,10 @@ from typing import Any, Optional
 
 import numpy as np
 from PIL import Image
+import torch
 
-from models import get_ocr, get_sbert
+from file_processors.text_processor import encode_text_chunks
+from models import DEVICE, get_ocr, get_sbert, get_siglip
 from utils import chunk_words, is_meaningful_text, l2_normalize, safe_preview
 
 logger = logging.getLogger(__name__)
@@ -29,6 +31,7 @@ logger = logging.getLogger(__name__)
 # DPI рендера для OCR. 200 — компромисс скорость/качество: при 150
 # мелкий шрифт теряется, при 300 — вдвое медленнее без заметного прироста.
 OCR_DPI = 200
+VISUAL_PAGES_LIMIT = 6
 
 
 def _extract_page_text_or_ocr(page: Any) -> str:
@@ -49,25 +52,13 @@ def _extract_page_text_or_ocr(page: Any) -> str:
         logger.warning("Не удалось отрендерить страницу %s: %s", page.number, exc)
         return ""
 
-    ocr = get_ocr()
+    reader = get_ocr()
     try:
-        # PaddleOCR принимает numpy-массив напрямую.
-        raw = ocr.ocr(np.array(img), cls=True)
+        results = reader.readtext(np.array(img))
     except Exception as exc:
         logger.warning("OCR упал на странице %s: %s", page.number, exc)
         return ""
-
-    if not raw or not raw[0]:
-        return ""
-    lines: list[str] = []
-    for line in raw[0]:
-        try:
-            text = line[1][0]
-            if text:
-                lines.append(text)
-        except (IndexError, TypeError):
-            continue
-    return " ".join(lines)
+    return " ".join(text for _, text, _ in results if text)
 
 
 def _zoom_matrix(zoom: float):
@@ -88,6 +79,28 @@ def _encode_chunks(chunks: list[str]) -> Optional[np.ndarray]:
     return l2_normalize(mean_vec)
 
 
+def _encode_images_siglip(images: list[Image.Image]) -> Optional[np.ndarray]:
+    """Encodes rendered PDF pages as visual content for scanned/illustrated PDFs."""
+    if not images:
+        return None
+    model, processor = get_siglip()
+    inputs = processor(images=images, return_tensors="pt")
+    inputs = {k: v.to(DEVICE) for k, v in inputs.items()}
+    with torch.no_grad():
+        features = model.get_image_features(**inputs)
+    return l2_normalize(np.mean(features.cpu().numpy(), axis=0))
+
+
+def _render_page_image(page: Any, dpi: int = 144) -> Optional[Image.Image]:
+    try:
+        zoom = dpi / 72.0
+        pix = page.get_pixmap(matrix=_zoom_matrix(zoom))
+        return Image.open(io.BytesIO(pix.tobytes("png"))).convert("RGB")
+    except Exception as exc:
+        logger.warning("Не удалось отрендерить PDF-страницу %s: %s", page.number, exc)
+        return None
+
+
 def process(path: Path) -> Optional[dict[str, Any]]:
     """Обрабатывает PDF любого типа (текстовый/скан/гибридный)."""
     try:
@@ -105,7 +118,12 @@ def process(path: Path) -> Optional[dict[str, Any]]:
 
     try:
         texts: list[str] = []
+        page_images: list[Image.Image] = []
         for page in doc:
+            if len(page_images) < VISUAL_PAGES_LIMIT:
+                page_image = _render_page_image(page)
+                if page_image is not None:
+                    page_images.append(page_image)
             page_text = _extract_page_text_or_ocr(page)
             if page_text.strip():
                 texts.append(page_text)
@@ -113,15 +131,17 @@ def process(path: Path) -> Optional[dict[str, Any]]:
         doc.close()
 
     combined = "\n".join(texts).strip()
-    if not combined:
+    image_vec = _encode_images_siglip(page_images)
+    if not combined and image_vec is None:
         return None
 
-    chunks = chunk_words(combined)
-    text_vec = _encode_chunks(chunks)
-    if text_vec is None:
-        return None
+    text_chunks = encode_text_chunks(combined, label_prefix="pdf") if combined else []
 
-    return {
-        "text_vec": text_vec,
-        "text_preview": safe_preview(combined, max_chars=150),
+    result: dict[str, Any] = {
+        "text_preview": safe_preview(combined, max_chars=150) if combined else None,
     }
+    if image_vec is not None:
+        result["image_vec"] = image_vec
+    if text_chunks:
+        result["text_chunks"] = text_chunks
+    return result

@@ -11,7 +11,7 @@ from typing import Any, Optional
 
 import numpy as np
 
-from config import TEXT_MAX_CHARS
+from config import SBERT_PASSAGE_PREFIX, TEXT_MAX_CHARS
 from models import get_sbert
 from utils import chunk_words, l2_normalize, safe_preview
 
@@ -26,11 +26,35 @@ def _encode_chunks(chunks: list[str]) -> Optional[np.ndarray]:
     return l2_normalize(np.mean(vectors, axis=0))
 
 
+def encode_text_chunks(text: str, label_prefix: str = "chunk") -> list[dict[str, Any]]:
+    """Encodes every text chunk separately so long documents are searchable by local meaning."""
+    chunks = chunk_words(text)
+    if not chunks:
+        return []
+    sbert = get_sbert()
+    # E5-модели работают лучше с префиксом "passage: " для индексируемых текстов.
+    # Для других моделей SBERT_PASSAGE_PREFIX == "" и поведение не меняется.
+    to_encode = [SBERT_PASSAGE_PREFIX + c for c in chunks] if SBERT_PASSAGE_PREFIX else chunks
+    vectors = sbert.encode(to_encode, convert_to_numpy=True, show_progress_bar=False)
+    encoded: list[dict[str, Any]] = []
+    for i, (chunk, vec) in enumerate(zip(chunks, vectors), start=1):
+        encoded.append(
+            {
+                "text_vec": l2_normalize(vec),
+                "text_preview": safe_preview(chunk, max_chars=150),
+                "chunk_label": f"{label_prefix} {i}",
+                "vec_kind": "text_chunk",
+            }
+        )
+    return encoded
+
+
 def _encode_single(text: str) -> Optional[np.ndarray]:
     if not text.strip():
         return None
     sbert = get_sbert()
-    vec = sbert.encode(text, convert_to_numpy=True, show_progress_bar=False)
+    to_encode = SBERT_PASSAGE_PREFIX + text if SBERT_PASSAGE_PREFIX else text
+    vec = sbert.encode(to_encode, convert_to_numpy=True, show_progress_bar=False)
     return l2_normalize(vec)
 
 
@@ -48,12 +72,12 @@ def process(path: Path) -> Optional[dict[str, Any]]:
     if not text.strip():
         return None
 
-    text_vec = _encode_chunks(chunk_words(text))
-    if text_vec is None:
+    text_chunks = encode_text_chunks(text)
+    if not text_chunks:
         return None
 
     return {
-        "text_vec": text_vec,
+        "text_chunks": text_chunks,
         "text_preview": safe_preview(text, max_chars=150),
     }
 

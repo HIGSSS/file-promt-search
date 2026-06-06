@@ -21,7 +21,10 @@ from config import (
     CSV_EXTENSIONS,
     DOCX_EXTENSIONS,
     MEDIA_EXTENSIONS,
+    PLAIN_TEXT_EXTENSIONS,
+    PRESENTATION_EXTENSIONS,
     PDF_EXTENSIONS,
+    RICH_TEXT_EXTENSIONS,
     TABLE_EXTENSIONS,
     TEXT_EXTENSIONS,
     VIDEO_EXTENSIONS,
@@ -45,6 +48,12 @@ def detect_type(path: Path) -> str:
         return "csv"
     if ext in TABLE_EXTENSIONS:
         return "xlsx"
+    if ext in PRESENTATION_EXTENSIONS:
+        return "pptx"
+    if ext in RICH_TEXT_EXTENSIONS:
+        return ext.lstrip(".")
+    if ext in PLAIN_TEXT_EXTENSIONS:
+        return ext.lstrip(".")
     return "other"
 
 
@@ -77,6 +86,18 @@ def process_file(path: Path) -> Optional[dict[str, Any]]:
     if file_type == "xlsx":
         from file_processors.table_processor import process_xlsx as p
         return _attach_type(p(path), "xlsx")
+    if file_type == "pptx":
+        from file_processors.office_processor import process_pptx as p
+        return _attach_type(p(path), "pptx")
+    if file_type == "odt":
+        from file_processors.office_processor import process_odt as p
+        return _attach_type(p(path), "odt")
+    if file_type == "rtf":
+        from file_processors.office_processor import process_rtf as p
+        return _attach_type(p(path), "rtf")
+    if file_type in {"md", "markdown", "json", "xml", "html", "htm", "log"}:
+        from file_processors.office_processor import process_plain_text_like as p
+        return _attach_type(p(path), file_type)
     # other — индексируется по имени на уровне indexer'а
     return None
 

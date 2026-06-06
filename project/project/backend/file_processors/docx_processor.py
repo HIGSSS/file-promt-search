@@ -9,20 +9,10 @@ import logging
 from pathlib import Path
 from typing import Any, Optional
 
-import numpy as np
-
-from models import get_sbert
-from utils import chunk_words, l2_normalize, safe_preview
+from file_processors.text_processor import encode_text_chunks
+from utils import safe_preview
 
 logger = logging.getLogger(__name__)
-
-
-def _encode_chunks(chunks: list[str]) -> Optional[np.ndarray]:
-    if not chunks:
-        return None
-    sbert = get_sbert()
-    vectors = sbert.encode(chunks, convert_to_numpy=True, show_progress_bar=False)
-    return l2_normalize(np.mean(vectors, axis=0))
 
 
 def process(path: Path) -> Optional[dict[str, Any]]:
@@ -44,19 +34,24 @@ def process(path: Path) -> Optional[dict[str, Any]]:
         logger.warning("Не удалось открыть docx %s: %s", path, exc)
         return None
 
-    # Только параграфы с непустым текстом. Таблицы в docx — отдельная
-    # структура (doc.tables); для простоты оставлены вне индексации,
-    # поскольку ТЗ требует именно абзацы.
     lines = [p.text for p in doc.paragraphs if p.text.strip()]
+
+    # Таблицы: важны для учебных работ где условие/данные часто в таблице.
+    for table in doc.tables:
+        for row in table.rows:
+            row_cells = [cell.text.strip() for cell in row.cells if cell.text.strip()]
+            if row_cells:
+                lines.append(" | ".join(row_cells))
+
     combined = "\n".join(lines).strip()
     if not combined:
         return None
 
-    text_vec = _encode_chunks(chunk_words(combined))
-    if text_vec is None:
+    text_chunks = encode_text_chunks(combined, label_prefix="docx")
+    if not text_chunks:
         return None
 
     return {
-        "text_vec": text_vec,
+        "text_chunks": text_chunks,
         "text_preview": safe_preview(combined, max_chars=150),
     }

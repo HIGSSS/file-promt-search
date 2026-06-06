@@ -86,13 +86,18 @@ class ApiService {
 
   /// POST /upload-index — загрузка выбранных на телефоне файлов и запуск
   /// индексации backend-копий. Это запасной ручной сценарий для Android.
-  static Future<void> uploadAndIndex(List<PlatformFile> files) async {
+  static Future<void> uploadAndIndex(
+    List<PlatformFile> files, {
+    bool append = false,
+  }) async {
     if (files.isEmpty) {
       throw const ApiException('Файлы не выбраны.');
     }
 
     await _withErrorHandling(() async {
-      final uri = await _uri('/upload-index');
+      final uri = (await _uri('/upload-index')).replace(
+        queryParameters: {'append': append.toString()},
+      );
       final request = http.MultipartRequest('POST', uri);
 
       for (final file in files) {

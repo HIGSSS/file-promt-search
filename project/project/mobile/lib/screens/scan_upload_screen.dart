@@ -10,12 +10,10 @@ import 'indexing_screen.dart';
 enum _Stage { scanning, confirming, uploading, error }
 
 class ScanUploadScreen extends StatefulWidget {
-  final String rootPath;
+  /// Если не передан — сканируется всё хранилище устройства.
+  final String? rootPath;
 
-  const ScanUploadScreen({
-    super.key,
-    required this.rootPath,
-  });
+  const ScanUploadScreen({super.key, this.rootPath});
 
   @override
   State<ScanUploadScreen> createState() => _ScanUploadScreenState();
@@ -52,7 +50,7 @@ class _ScanUploadScreenState extends State<ScanUploadScreen> {
   Future<void> _run() async {
     try {
       final files = await DeviceFileScanner.scanSupportedFiles(
-        rootPath: widget.rootPath,
+        rootPath: widget.rootPath ?? DeviceFileScanner.defaultRootPath,
         onProgress: (dirs, found, path) {
           if (!mounted) return;
           setState(() {
@@ -215,7 +213,7 @@ class _ScanUploadScreenState extends State<ScanUploadScreen> {
             children: [
               const Text('Сканирование'),
               Text(
-                _shortPath(widget.rootPath),
+                _shortPath(widget.rootPath ?? DeviceFileScanner.defaultRootPath),
                 style: const TextStyle(fontSize: 11, fontWeight: FontWeight.normal),
                 overflow: TextOverflow.ellipsis,
               ),
