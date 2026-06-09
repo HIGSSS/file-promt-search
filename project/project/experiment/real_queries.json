@@ -1,0 +1,437 @@
+{
+  "_note": "Смешанный датасет: 20 реальных фото (Flickr8k) + документы PDF/DOCX/TXT/CSV/XLSX с содержательным текстом на конкретные темы. Итого файлов: 41, запросов: 48 (41 семантических, 7 точных).",
+  "queries": [
+    {
+      "id": 1,
+      "file_type": "image",
+      "query": "two dogs play together in the snow",
+      "kind": "semantic",
+      "relevant": [
+        "flickr_001.jpg"
+      ]
+    },
+    {
+      "id": 2,
+      "file_type": "image",
+      "query": "a little baby plays croquet",
+      "kind": "semantic",
+      "relevant": [
+        "flickr_002.jpg"
+      ]
+    },
+    {
+      "id": 3,
+      "file_type": "image",
+      "query": "a brown dog in the snow holding a pink hat",
+      "kind": "semantic",
+      "relevant": [
+        "flickr_003.jpg"
+      ]
+    },
+    {
+      "id": 4,
+      "file_type": "image",
+      "query": "brown dog running on the beach",
+      "kind": "semantic",
+      "relevant": [
+        "flickr_004.jpg"
+      ]
+    },
+    {
+      "id": 5,
+      "file_type": "image",
+      "query": "dog catching a red frisbee",
+      "kind": "semantic",
+      "relevant": [
+        "flickr_005.jpg"
+      ]
+    },
+    {
+      "id": 6,
+      "file_type": "image",
+      "query": "a cyclist wearing a red helmet is riding on the pavement",
+      "kind": "semantic",
+      "relevant": [
+        "flickr_006.jpg"
+      ]
+    },
+    {
+      "id": 7,
+      "file_type": "image",
+      "query": "a man on the street wearing leather chaps and a chainmail codpiece",
+      "kind": "semantic",
+      "relevant": [
+        "flickr_007.jpg"
+      ]
+    },
+    {
+      "id": 8,
+      "file_type": "image",
+      "query": "a child runs near some trees",
+      "kind": "semantic",
+      "relevant": [
+        "flickr_008.jpg"
+      ]
+    },
+    {
+      "id": 9,
+      "file_type": "image",
+      "query": "a girl in a white dress",
+      "kind": "semantic",
+      "relevant": [
+        "flickr_009.jpg"
+      ]
+    },
+    {
+      "id": 10,
+      "file_type": "image",
+      "query": "somone is high in the air doing a ski jump",
+      "kind": "semantic",
+      "relevant": [
+        "flickr_010.jpg"
+      ]
+    },
+    {
+      "id": 11,
+      "file_type": "image",
+      "query": "a photographer looks over the hills",
+      "kind": "semantic",
+      "relevant": [
+        "flickr_011.jpg"
+      ]
+    },
+    {
+      "id": 12,
+      "file_type": "image",
+      "query": "cheerleaders perform",
+      "kind": "semantic",
+      "relevant": [
+        "flickr_012.jpg"
+      ]
+    },
+    {
+      "id": 13,
+      "file_type": "image",
+      "query": "a boat in the water",
+      "kind": "semantic",
+      "relevant": [
+        "flickr_013.jpg"
+      ]
+    },
+    {
+      "id": 14,
+      "file_type": "image",
+      "query": "a dog catching a frisbee",
+      "kind": "semantic",
+      "relevant": [
+        "flickr_014.jpg"
+      ]
+    },
+    {
+      "id": 15,
+      "file_type": "image",
+      "query": "a woman sits in a subway station",
+      "kind": "semantic",
+      "relevant": [
+        "flickr_015.jpg"
+      ]
+    },
+    {
+      "id": 16,
+      "file_type": "image",
+      "query": "girl playing flute as she walks by fence in rural area",
+      "kind": "semantic",
+      "relevant": [
+        "flickr_016.jpg"
+      ]
+    },
+    {
+      "id": 17,
+      "file_type": "image",
+      "query": "a happy family poses by the fireplace",
+      "kind": "semantic",
+      "relevant": [
+        "flickr_017.jpg"
+      ]
+    },
+    {
+      "id": 18,
+      "file_type": "image",
+      "query": "man in a sweater pointing at the camera",
+      "kind": "semantic",
+      "relevant": [
+        "flickr_018.jpg"
+      ]
+    },
+    {
+      "id": 19,
+      "file_type": "image",
+      "query": "there is a big dog looking at a little dog",
+      "kind": "semantic",
+      "relevant": [
+        "flickr_019.jpg"
+      ]
+    },
+    {
+      "id": 20,
+      "file_type": "image",
+      "query": "three children play in the garden",
+      "kind": "semantic",
+      "relevant": [
+        "flickr_020.jpg"
+      ]
+    },
+    {
+      "id": 21,
+      "file_type": "pdf",
+      "query": "рецепт борща с говядиной",
+      "kind": "semantic",
+      "relevant": [
+        "рецепт_борща.pdf"
+      ]
+    },
+    {
+      "id": 22,
+      "file_type": "pdf",
+      "query": "договор аренды жилого помещения",
+      "kind": "semantic",
+      "relevant": [
+        "договор_аренды.pdf"
+      ]
+    },
+    {
+      "id": 23,
+      "file_type": "pdf",
+      "query": "введение в нейронные сети и машинное обучение",
+      "kind": "semantic",
+      "relevant": [
+        "нейронные_сети.pdf"
+      ]
+    },
+    {
+      "id": 24,
+      "file_type": "pdf",
+      "query": "правила охраны труда и безопасности на рабочем месте",
+      "kind": "semantic",
+      "relevant": [
+        "охрана_труда.pdf"
+      ]
+    },
+    {
+      "id": 25,
+      "file_type": "pdf",
+      "query": "финансовый отчёт компании за квартал прибыль выручка",
+      "kind": "semantic",
+      "relevant": [
+        "финансовый_отчёт.pdf"
+      ]
+    },
+    {
+      "id": 26,
+      "file_type": "docx",
+      "query": "резюме программиста Python",
+      "kind": "semantic",
+      "relevant": [
+        "резюме_python_разработчика.docx"
+      ]
+    },
+    {
+      "id": 27,
+      "file_type": "docx",
+      "query": "план маркетинговой кампании продвижение продукта",
+      "kind": "semantic",
+      "relevant": [
+        "маркетинговый_план.docx"
+      ]
+    },
+    {
+      "id": 28,
+      "file_type": "docx",
+      "query": "поведение животных в природе дикая природа",
+      "kind": "semantic",
+      "relevant": [
+        "исследование_поведения_животных.docx"
+      ]
+    },
+    {
+      "id": 29,
+      "file_type": "docx",
+      "query": "протокол заседания совета директоров",
+      "kind": "semantic",
+      "relevant": [
+        "протокол_совещания.docx"
+      ]
+    },
+    {
+      "id": 30,
+      "file_type": "docx",
+      "query": "правила здорового питания и диета",
+      "kind": "semantic",
+      "relevant": [
+        "правильное_питание.docx"
+      ]
+    },
+    {
+      "id": 31,
+      "file_type": "txt",
+      "query": "список продуктов для магазина еда",
+      "kind": "semantic",
+      "relevant": [
+        "список_покупок.txt"
+      ]
+    },
+    {
+      "id": 32,
+      "file_type": "txt",
+      "query": "стихотворение про осень и природу",
+      "kind": "semantic",
+      "relevant": [
+        "стихи_об_осени.txt"
+      ]
+    },
+    {
+      "id": 33,
+      "file_type": "txt",
+      "query": "философия Кант Ницше экзистенциализм",
+      "kind": "semantic",
+      "relevant": [
+        "философские_заметки.txt"
+      ]
+    },
+    {
+      "id": 34,
+      "file_type": "txt",
+      "query": "настройка домашнего роутера интернет WiFi",
+      "kind": "semantic",
+      "relevant": [
+        "настройка_роутера.txt"
+      ]
+    },
+    {
+      "id": 35,
+      "file_type": "txt",
+      "query": "путешествие в горы туризм поход",
+      "kind": "semantic",
+      "relevant": [
+        "дневник_путешествия.txt"
+      ]
+    },
+    {
+      "id": 36,
+      "file_type": "csv",
+      "query": "данные продаж по городам и регионам",
+      "kind": "semantic",
+      "relevant": [
+        "продажи_по_регионам.csv"
+      ]
+    },
+    {
+      "id": 37,
+      "file_type": "csv",
+      "query": "список сотрудников компании с должностями и зарплатой",
+      "kind": "semantic",
+      "relevant": [
+        "зарплаты_сотрудников.csv"
+      ]
+    },
+    {
+      "id": 38,
+      "file_type": "csv",
+      "query": "статистика посещаемости сайта трафик",
+      "kind": "semantic",
+      "relevant": [
+        "статистика_сайта.csv"
+      ]
+    },
+    {
+      "id": 39,
+      "file_type": "xlsx",
+      "query": "семейный бюджет расходы доходы за месяц",
+      "kind": "semantic",
+      "relevant": [
+        "бюджет_семьи.xlsx"
+      ]
+    },
+    {
+      "id": 40,
+      "file_type": "xlsx",
+      "query": "расписание учебных занятий университет семестр",
+      "kind": "semantic",
+      "relevant": [
+        "расписание_занятий.xlsx"
+      ]
+    },
+    {
+      "id": 41,
+      "file_type": "xlsx",
+      "query": "складские остатки товаров инвентаризация",
+      "kind": "semantic",
+      "relevant": [
+        "склад_остатки.xlsx"
+      ]
+    },
+    {
+      "id": 42,
+      "file_type": "any",
+      "query": "рецепт_борща",
+      "kind": "exact",
+      "relevant": [
+        "рецепт_борща.pdf"
+      ]
+    },
+    {
+      "id": 43,
+      "file_type": "any",
+      "query": "нейронные_сети",
+      "kind": "exact",
+      "relevant": [
+        "нейронные_сети.pdf"
+      ]
+    },
+    {
+      "id": 44,
+      "file_type": "any",
+      "query": "резюме_python",
+      "kind": "exact",
+      "relevant": [
+        "резюме_python_разработчика.docx"
+      ]
+    },
+    {
+      "id": 45,
+      "file_type": "any",
+      "query": "протокол_совещания",
+      "kind": "exact",
+      "relevant": [
+        "протокол_совещания.docx"
+      ]
+    },
+    {
+      "id": 46,
+      "file_type": "any",
+      "query": "философские_заметки",
+      "kind": "exact",
+      "relevant": [
+        "философские_заметки.txt"
+      ]
+    },
+    {
+      "id": 47,
+      "file_type": "any",
+      "query": "продажи_по_регионам",
+      "kind": "exact",
+      "relevant": [
+        "продажи_по_регионам.csv"
+      ]
+    },
+    {
+      "id": 48,
+      "file_type": "any",
+      "query": "бюджет_семьи",
+      "kind": "exact",
+      "relevant": [
+        "бюджет_семьи.xlsx"
+      ]
+    }
+  ]
+}

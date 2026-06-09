@@ -1,0 +1,252 @@
+[
+  {
+    "filename": "IMG_0001.png",
+    "description": "закат на море",
+    "type": "image"
+  },
+  {
+    "filename": "IMG_0002.png",
+    "description": "кот у окна",
+    "type": "image"
+  },
+  {
+    "filename": "IMG_0003.png",
+    "description": "горный пейзаж с озером",
+    "type": "image"
+  },
+  {
+    "filename": "IMG_0004.png",
+    "description": "чашка кофе на столе",
+    "type": "image"
+  },
+  {
+    "filename": "IMG_0005.png",
+    "description": "ночной город с огнями",
+    "type": "image"
+  },
+  {
+    "filename": "IMG_0006.png",
+    "description": "букет цветов в вазе",
+    "type": "image"
+  },
+  {
+    "filename": "IMG_0007.png",
+    "description": "лесная тропа осенью",
+    "type": "image"
+  },
+  {
+    "filename": "IMG_0008.png",
+    "description": "снежные горные вершины",
+    "type": "image"
+  },
+  {
+    "filename": "IMG_0009.png",
+    "description": "собака играет на траве",
+    "type": "image"
+  },
+  {
+    "filename": "IMG_0010.png",
+    "description": "пляж с пальмами",
+    "type": "image"
+  },
+  {
+    "filename": "IMG_0011.png",
+    "description": "меню кофейни с ценами",
+    "type": "image"
+  },
+  {
+    "filename": "IMG_0012.png",
+    "description": "красная машина на дороге",
+    "type": "image"
+  },
+  {
+    "filename": "IMG_0013.png",
+    "description": "библиотека с книгами",
+    "type": "image"
+  },
+  {
+    "filename": "IMG_0014.png",
+    "description": "звёздное небо над полем",
+    "type": "image"
+  },
+  {
+    "filename": "IMG_0015.png",
+    "description": "детский рисунок радуги",
+    "type": "image"
+  },
+  {
+    "filename": "IMG_0016.png",
+    "description": "тарелка с едой в ресторане",
+    "type": "image"
+  },
+  {
+    "filename": "IMG_0017.png",
+    "description": "офисный стол с ноутбуком",
+    "type": "image"
+  },
+  {
+    "filename": "IMG_0018.png",
+    "description": "зимний парк со снегом",
+    "type": "image"
+  },
+  {
+    "filename": "IMG_0019.png",
+    "description": "цветущая сакура весной",
+    "type": "image"
+  },
+  {
+    "filename": "IMG_0020.png",
+    "description": "водопад в джунглях",
+    "type": "image"
+  },
+  {
+    "filename": "FILE_0001.pdf",
+    "description": "договор аренды квартиры между арендодателем и арендатором на срок 11 месяцев",
+    "type": "pdf"
+  },
+  {
+    "filename": "FILE_0002.pdf",
+    "description": "научная статья о машинном обучении и нейронных сетях",
+    "type": "pdf"
+  },
+  {
+    "filename": "FILE_0003.pdf",
+    "description": "рецепт приготовления борща с мясом и сметаной",
+    "type": "pdf"
+  },
+  {
+    "filename": "FILE_0004.pdf",
+    "description": "инструкция по технике безопасности на производстве",
+    "type": "pdf"
+  },
+  {
+    "filename": "FILE_0005.pdf",
+    "description": "отчёт о финансовых результатах компании за квартал",
+    "type": "pdf"
+  },
+  {
+    "filename": "FILE_0006.docx",
+    "description": "резюме программиста Python с опытом 5 лет",
+    "type": "docx"
+  },
+  {
+    "filename": "FILE_0007.docx",
+    "description": "план маркетинговой кампании на летний сезон",
+    "type": "docx"
+  },
+  {
+    "filename": "FILE_0008.docx",
+    "description": "дипломная работа по биологии о поведении млекопитающих",
+    "type": "docx"
+  },
+  {
+    "filename": "FILE_0009.docx",
+    "description": "протокол собрания совета директоров о стратегии",
+    "type": "docx"
+  },
+  {
+    "filename": "FILE_0010.docx",
+    "description": "статья о здоровом питании и правильной диете",
+    "type": "docx"
+  },
+  {
+    "filename": "FILE_0011.txt",
+    "description": "список покупок в магазине продукты",
+    "type": "txt"
+  },
+  {
+    "filename": "FILE_0012.txt",
+    "description": "стихотворение о природе и временах года",
+    "type": "txt"
+  },
+  {
+    "filename": "FILE_0013.txt",
+    "description": "заметки с лекции по философии",
+    "type": "txt"
+  },
+  {
+    "filename": "FILE_0014.txt",
+    "description": "инструкция как настроить роутер дома",
+    "type": "txt"
+  },
+  {
+    "filename": "FILE_0015.txt",
+    "description": "дневниковая запись о путешествии в горы",
+    "type": "txt"
+  },
+  {
+    "filename": "FILE_0016.csv",
+    "description": "таблица продаж по регионам за год",
+    "type": "csv"
+  },
+  {
+    "filename": "FILE_0017.csv",
+    "description": "список сотрудников компании с зарплатами",
+    "type": "csv"
+  },
+  {
+    "filename": "FILE_0018.csv",
+    "description": "каталог товаров интернет-магазина электроники",
+    "type": "csv"
+  },
+  {
+    "filename": "FILE_0019.csv",
+    "description": "статистика посещений сайта по месяцам",
+    "type": "csv"
+  },
+  {
+    "filename": "FILE_0020.csv",
+    "description": "рейтинг книг по жанрам с оценками",
+    "type": "csv"
+  },
+  {
+    "filename": "FILE_0021.xlsx",
+    "description": "бюджет семьи на месяц по категориям расходов",
+    "type": "xlsx"
+  },
+  {
+    "filename": "FILE_0022.xlsx",
+    "description": "расписание занятий в университете на семестр",
+    "type": "xlsx"
+  },
+  {
+    "filename": "FILE_0023.xlsx",
+    "description": "инвентаризация склада по позициям и количеству",
+    "type": "xlsx"
+  },
+  {
+    "filename": "FILE_0024.xlsx",
+    "description": "план тренировок в тренажёрном зале по дням",
+    "type": "xlsx"
+  },
+  {
+    "filename": "FILE_0025.xlsx",
+    "description": "данные клиентов с контактами и суммой покупок",
+    "type": "xlsx"
+  },
+  {
+    "filename": "конфигурация виртуальной_машины_ubuntu.conf",
+    "description": "настройки виртуальной машины ubuntu",
+    "type": "other"
+  },
+  {
+    "filename": "бекап_базы_данных_2024_декабрь.dump",
+    "description": "резервная копия базы данных за декабрь 2024",
+    "type": "other"
+  },
+  {
+    "filename": "архив_фотографий_отпуск_турция.tar",
+    "description": "архив фотографий с отпуска в турции",
+    "type": "other"
+  },
+  {
+    "filename": "лог_сервера_nginx_ошибки.log",
+    "description": "файл логов веб-сервера nginx с ошибками",
+    "type": "other"
+  },
+  {
+    "filename": "презентация_проекта_стартап.key",
+    "description": "презентация стартап-проекта в формате keynote",
+    "type": "other"
+  }
+]

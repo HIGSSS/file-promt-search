@@ -237,15 +237,15 @@ def search(
     use_text = file_type in ("documents", "other", "all")
 
     if file_type == "documents":
-        text_type_filter: Optional[set[str]] = {
-            "pdf", "docx", "txt", "pptx", "odt", "rtf", "md", "markdown",
-        }
+        # Документы — это только pdf и docx. Всё остальное (txt, таблицы,
+        # презентации, разметка и т.д.) пользователь относит к «прочему».
+        text_type_filter: Optional[set[str]] = {"pdf", "docx"}
     elif file_type == "other":
-        # Всё что не медиа (image/video — в media_index) и не документы.
-        # Тип "other" — это файлы с нераспознанным расширением (zip, apk и т.д.),
-        # которые индексируются только по имени через encode_filename.
+        # Всё, что не медиа (image/video — в media_index) и не pdf/docx:
+        # текстовые форматы, таблицы, офисные форматы и нераспознанные типы.
         text_type_filter = {
-            "csv", "xlsx", "xls", "json", "xml", "html", "htm", "log", "other",
+            "txt", "csv", "xlsx", "xls", "pptx", "odt", "rtf",
+            "md", "markdown", "json", "xml", "html", "htm", "log", "other",
         }
     else:
         text_type_filter = None  # media или all — не фильтруем

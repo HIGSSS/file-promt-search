@@ -5,8 +5,10 @@ pydantic>=2.5,<3.0
 python-multipart>=0.0.9,<1.0
 
 # --- ML: энкодеры и инференс ---
-# CPU-версия torch явно: GPU-версия в 10x тяжелее и не нужна
-# (SigLIP-base на CPU укладывается в 1-5 сек/файл согласно §8 ТЗ).
+# torch подхватывает CUDA автоматически, если она доступна (см. models._detect_device);
+# на машинах без GPU отрабатывает тот же пакет на CPU. Чтобы поставить версию
+# под конкретный CUDA-тулкит — ставьте torch вручную ДО requirements.txt
+# (см. https://pytorch.org/get-started/locally/), pip не станет её перезаписывать.
 torch>=2.2,<3.0
 transformers>=4.40,<5.0
 sentence-transformers>=2.7,<4.0
@@ -14,10 +16,15 @@ sentence-transformers>=2.7,<4.0
 sentencepiece>=0.2,<1.0
 
 # --- OCR ---
-# paddlepaddle ставится вместе с paddleocr, но на некоторых ОС
-# индекс PyPI требует явного указания. Совместимые версии:
-paddlepaddle>=2.6,<3.0
-paddleocr>=2.7,<3.0
+# EasyOCR вместо PaddleOCR: работает поверх PyTorch (тот же бэкенд, что
+# у SigLIP/SBERT) — нет конфликта oneDNN между PaddlePaddle и PyTorch
+# и не тянет отдельный тяжёлый ML-фреймворк.
+easyocr>=1.7,<2.0
+
+# --- Перевод запросов для медиа-поиска (ru → en для SigLIP) ---
+# Опционально: без этих пакетов get_translator() возвращает None и поиск
+# фото просто работает на исходном языке запроса.
+sacremoses>=0.1,<1.0
 
 # --- Векторный индекс ---
 # faiss-cpu достаточно для Flat-индексов на десятках тысяч векторов.
@@ -33,5 +40,5 @@ pandas>=2.0,<3.0
 openpyxl>=3.1,<4.0
 opencv-python>=4.8,<5.0
 
-# --- numpy: закрепляем верхнюю границу, т.к. paddlepaddle может отставать ---
+# --- numpy: закрепляем верхнюю границу для совместимости с opencv/faiss ---
 numpy>=1.24,<2.1

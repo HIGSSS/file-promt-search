@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/index_status.dart';
 import '../services/api_service.dart';
+import '../services/server_discovery_service.dart';
 import '../services/settings_service.dart';
 import 'indexing_screen.dart';
 
@@ -18,6 +19,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   IndexStatus? _status;
   String? _lastPath;
   bool _loading = true;
+  bool _discovering = false;
 
   @override
   void initState() {
@@ -32,38 +34,78 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _loadAll() async {
-    // Параллельные загрузки: все три независимы, ждём их через wait.
-    final results = await Future.wait([
-      SettingsService.getServerUrl(),
-      SettingsService.getLastIndexedPath(),
-      _fetchStatusOrNull(),
-    ]);
+    try {
+      // Параллельные загрузки: все три независимы, ждём их через wait.
+      final results = await Future.wait([
+        SettingsService.getServerUrl(),
+        SettingsService.getLastIndexedPath(),
+        _fetchStatusOrNull(),
+      ]);
 
-    if (!mounted) return;
-    setState(() {
-      _urlController.text = results[0] as String;
-      _lastPath = results[1] as String?;
-      _status = results[2] as IndexStatus?;
-      _loading = false;
-    });
+      if (!mounted) return;
+      setState(() {
+        _urlController.text = results[0] as String;
+        _lastPath = results[1] as String?;
+        _status = results[2] as IndexStatus?;
+      });
+    } finally {
+      // ВАЖНО: снимаем спиннер всегда, даже при неожиданной ошибке —
+      // иначе экран Settings зависает в состоянии загрузки навсегда
+      // (ровно это и происходило, когда _fetchStatusOrNull пропускал
+      // исключения, не являющиеся ApiException).
+      if (mounted) setState(() => _loading = false);
+    }
   }
 
   Future<IndexStatus?> _fetchStatusOrNull() async {
     try {
       return await ApiService.getStatus();
-    } on ApiException {
-      // Сервер недоступен — это ок для settings-экрана,
-      // просто покажем «неизвестно».
+    } catch (_) {
+      // Сервер недоступен или вернул что-то неожиданное — это ок для
+      // settings-экрана, просто покажем «неизвестно». Ловим Exception
+      // целиком, а не только ApiException: http-клиент на разных
+      // платформах может бросать ClientException/HandshakeException/
+      // TypeError при парсинге неожиданного ответа — всё это не должно
+      // блокировать загрузку экрана настроек.
       return null;
     }
   }
 
-  Future<void> _saveUrl() async {
+  Future<void> _discoverServer() async {
+    setState(() => _discovering = true);
+    try {
+      final found = await ServerDiscoveryService.discover();
+      if (!mounted) return;
+      if (found == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Сервер не найден в локальной сети. Убедитесь, что телефон '
+              'и компьютер в одном Wi-Fi и backend запущен, либо введите URL вручную.',
+            ),
+          ),
+        );
+        return;
+      }
+      _urlController.text = found;
+      await _saveUrl(showSavedSnackBar: false);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Сервер найден и сохранён: $found')),
+      );
+    } finally {
+      if (mounted) setState(() => _discovering = false);
+    }
+  }
+
+  Future<void> _saveUrl({bool showSavedSnackBar = true}) async {
     await SettingsService.setServerUrl(_urlController.text);
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('URL сохранён')),
-    );
+    if (showSavedSnackBar) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('URL сохранён')),
+      );
+    }
     // После смены URL имеет смысл перечитать статус с нового сервера.
     final status = await _fetchStatusOrNull();
     if (mounted) setState(() => _status = status);
@@ -128,12 +170,32 @@ class _SettingsScreenState extends State<SettingsScreen> {
           autocorrect: false,
         ),
         const SizedBox(height: 8),
-        Align(
-          alignment: Alignment.centerRight,
-          child: FilledButton(
-            onPressed: _saveUrl,
-            child: const Text('Сохранить'),
-          ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            TextButton.icon(
+              onPressed: _discovering ? null : _discoverServer,
+              icon: _discovering
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.wifi_find),
+              label: Text(_discovering ? 'Ищем в сети...' : 'Найти в сети'),
+            ),
+            const SizedBox(width: 8),
+            FilledButton(
+              onPressed: _discovering ? null : () => _saveUrl(),
+              child: const Text('Сохранить'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'Телефон и компьютер должны быть в одной Wi-Fi сети. '
+          '«Найти в сети» сам подберёт IP компьютера, на котором запущен backend.',
+          style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
         ),
       ],
     );

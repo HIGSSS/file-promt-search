@@ -29,11 +29,25 @@ def load_queries(path: Path) -> list[dict[str, Any]]:
     return data["queries"]
 
 
-def semantic_search(server: str, query: str, top_k: int = 5) -> list[str]:
+def semantic_search(server: str, query: str, file_type: str = "all", top_k: int = 5) -> list[str]:
     """Отправляет запрос на backend и возвращает список filename'ов."""
+    # Маппинг типов из queries.json → типы API
+    api_file_type = {
+        "image": "media",
+        "video": "media",
+        "media": "media",
+        "pdf": "documents",
+        "docx": "documents",
+        "documents": "documents",
+        "txt": "other",
+        "csv": "other",
+        "xlsx": "other",
+        "other": "other",
+        "all": "all",
+    }.get(file_type, "all")
     resp = requests.post(
         f"{server}/search",
-        json={"query": query, "file_type": "all", "top_k": top_k},
+        json={"query": query, "file_type": api_file_type, "top_k": top_k},
         timeout=60,
     )
     resp.raise_for_status()
@@ -86,7 +100,8 @@ def run_experiment(
     queries = load_queries(queries_file)
     per_query: list[dict[str, Any]] = []
     for q in queries:
-        retrieved_semantic = semantic_search(server, q["query"], top_k=k)
+        file_type = q.get("file_type", "all")
+        retrieved_semantic = semantic_search(server, q["query"], file_type=file_type, top_k=k)
         retrieved_substring = substring_search(dataset_dir, q["query"], top_k=k)
         p_semantic = precision_at_k(retrieved_semantic, q["relevant"], k)
         p_substring = precision_at_k(retrieved_substring, q["relevant"], k)
@@ -94,6 +109,7 @@ def run_experiment(
             "id": q["id"],
             "query": q["query"],
             "kind": q["kind"],
+            "file_type": file_type,
             "relevant": q["relevant"],
             "semantic_top": retrieved_semantic,
             "substring_top": retrieved_substring,
@@ -105,57 +121,95 @@ def run_experiment(
     def mean(xs: list[float]) -> float:
         return sum(xs) / len(xs) if xs else 0.0
 
+    n_total = len(per_query)
     all_sem = [r["p_semantic"] for r in per_query]
     all_sub = [r["p_substring"] for r in per_query]
-    exact_sem = [r["p_semantic"] for r in per_query if r["kind"] == "exact"]
-    exact_sub = [r["p_substring"] for r in per_query if r["kind"] == "exact"]
-    sem_sem = [r["p_semantic"] for r in per_query if r["kind"] == "semantic"]
-    sem_sub = [r["p_substring"] for r in per_query if r["kind"] == "semantic"]
+    exact = [r for r in per_query if r["kind"] == "exact"]
+    semantic = [r for r in per_query if r["kind"] == "semantic"]
+
+    # Группировка по file_type
+    ft_groups: dict[str, list[dict]] = {}
+    for r in per_query:
+        ft = r["file_type"]
+        ft_groups.setdefault(ft, []).append(r)
+
+    ft_summary = {
+        ft: {
+            "n": len(items),
+            "semantic": mean([r["p_semantic"] for r in items]),
+            "substring": mean([r["p_substring"] for r in items]),
+        }
+        for ft, items in ft_groups.items()
+    }
 
     return {
         "k": k,
+        "n_total": n_total,
         "per_query": per_query,
         "summary": {
-            "all": {"semantic": mean(all_sem), "substring": mean(all_sub)},
-            "exact_queries": {"semantic": mean(exact_sem), "substring": mean(exact_sub)},
-            "semantic_queries": {"semantic": mean(sem_sem), "substring": mean(sem_sub)},
+            "all": {"n": n_total, "semantic": mean(all_sem), "substring": mean(all_sub)},
+            "exact_queries": {"n": len(exact), "semantic": mean([r["p_semantic"] for r in exact]), "substring": mean([r["p_substring"] for r in exact])},
+            "semantic_queries": {"n": len(semantic), "semantic": mean([r["p_semantic"] for r in semantic]), "substring": mean([r["p_substring"] for r in semantic])},
+            "by_file_type": ft_summary,
         },
     }
 
 
 def print_report(report: dict[str, Any]) -> None:
     k = report["k"]
+    n = report.get("n_total", len(report["per_query"]))
     print()
-    print("=" * 70)
-    print(f" РЕЗУЛЬТАТЫ ЭКСПЕРИМЕНТА: Precision@{k}")
-    print("=" * 70)
+    print("=" * 74)
+    print(f" РЕЗУЛЬТАТЫ ЭКСПЕРИМЕНТА: Precision@{k}  (запросов: {n})")
+    print("=" * 74)
 
     summary = report["summary"]
     rows = [
-        ("Все запросы (N=20)", summary["all"]),
-        ("  из них точные (N=10)", summary["exact_queries"]),
-        ("  из них семантические (N=10)", summary["semantic_queries"]),
+        (f"Все запросы (N={summary['all']['n']})", summary["all"]),
+        (f"  точные (N={summary['exact_queries']['n']})", summary["exact_queries"]),
+        (f"  семантические (N={summary['semantic_queries']['n']})", summary["semantic_queries"]),
     ]
-    # Заголовок таблицы агрегатов.
-    print(f"\n{'Набор':<32} {'Семантика':>12} {'Подстрока':>12}")
-    print("-" * 60)
+    print(f"\n{'Набор':<38} {'Семантика':>12} {'Подстрока':>12}")
+    print("-" * 65)
     for label, values in rows:
-        print(
-            f"{label:<32} "
-            f"{values['semantic']*100:>10.1f}% "
-            f"{values['substring']*100:>10.1f}%"
-        )
+        print(f"{label:<38} {values['semantic']*100:>10.1f}% {values['substring']*100:>10.1f}%")
 
-    print("\n" + "-" * 70)
+    # По типам файлов
+    ft_label = {
+        "image": "Изображения",
+        "video": "Видео",
+        "media": "Медиа",
+        "pdf": "PDF",
+        "docx": "DOCX",
+        "documents": "Документы",
+        "txt": "TXT",
+        "csv": "CSV",
+        "xlsx": "XLSX",
+        "other": "Прочее",
+        "all": "Все типы",
+    }
+    by_ft = summary.get("by_file_type", {})
+    if by_ft:
+        print()
+        print(f"{'По типу файла':<38} {'Семантика':>12} {'Подстрока':>12}")
+        print("-" * 65)
+        for ft, vals in sorted(by_ft.items()):
+            label = f"  {ft_label.get(ft, ft)} (N={vals['n']})"
+            print(f"{label:<38} {vals['semantic']*100:>10.1f}% {vals['substring']*100:>10.1f}%")
+
+    print("\n" + "-" * 74)
     print(" По каждому запросу:")
-    print("-" * 70)
-    print(f"{'ID':<4}{'Тип':<12}{'Запрос':<30}{'Сем.':>8}{'Подстр.':>10}")
-    print("-" * 70)
+    print("-" * 74)
+    print(f"{'ID':<4}{'Тип файла':<12}{'Вид':<10}{'Запрос':<28}{'Сем.':>8}{'Подстр.':>10}")
+    print("-" * 74)
     for r in report["per_query"]:
-        query_short = r["query"][:28]
+        ft = ft_label.get(r.get("file_type", "all"), r.get("file_type", ""))
+        query_short = r["query"][:26]
+        hit_sem = "✓" if r["p_semantic"] > 0 else " "
+        hit_sub = "✓" if r["p_substring"] > 0 else " "
         print(
-            f"{r['id']:<4}{r['kind']:<12}{query_short:<30}"
-            f"{r['p_semantic']*100:>6.0f}%  {r['p_substring']*100:>6.0f}%"
+            f"{r['id']:<4}{ft:<12}{r['kind']:<10}{query_short:<28}"
+            f"{r['p_semantic']*100:>5.0f}%{hit_sem} {r['p_substring']*100:>5.0f}%{hit_sub}"
         )
     print()
 

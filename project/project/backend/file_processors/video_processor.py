@@ -18,7 +18,7 @@ import torch
 from PIL import Image
 
 from config import VIDEO_FRAMES
-from models import get_siglip
+from models import DEVICE, get_siglip
 from utils import l2_normalize
 
 logger = logging.getLogger(__name__)
@@ -64,6 +64,11 @@ def _encode_frames_siglip(frames: list[Image.Image]) -> np.ndarray:
     model, processor = get_siglip()
     # Батч из N кадров за один forward — быстрее, чем поэлементно.
     inputs = processor(images=frames, return_tensors="pt")
+    # Без переноса на DEVICE: если модель на CUDA, а тензоры на CPU,
+    # forward падает с "Expected all tensors to be on the same device",
+    # process() ловит исключение и видео остаётся без image_vec —
+    # из-за этого видео не попадали в результаты поиска по медиа.
+    inputs = {k: v.to(DEVICE) for k, v in inputs.items()}
     with torch.no_grad():
         features = model.get_image_features(**inputs)
     return features.cpu().numpy()  # shape: (N, 768)

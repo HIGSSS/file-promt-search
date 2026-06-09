@@ -10,7 +10,7 @@
 Публичные функции:
     get_siglip() -> (model, processor)
     get_sbert() -> SentenceTransformer
-    get_ocr() -> PaddleOCR
+    get_ocr() -> EasyOCR
     warmup() -> None  # принудительная предзагрузка на старте FastAPI
 """
 from __future__ import annotations
@@ -155,7 +155,7 @@ def translate_to_english(text: str) -> str:
 
 
 def get_ocr() -> Any:
-    """Возвращает инициализированный PaddleOCR (русский + английский)."""
+    """Возвращает инициализированный EasyOCR (русский + английский)."""
     global _ocr
     if _ocr is not None:
         return _ocr
@@ -182,5 +182,9 @@ def warmup() -> None:
     get_siglip()
     get_sbert()
     get_ocr()
-    get_translator()  # None если sentencepiece не установлен — не критично
-    logger.info("Все модели прогреты (переводчик: %s)", "да" if _translator else "нет")
+    # Переводчик НЕ прогреваем здесь: Helsinki-NLP/opus-mt-ru-en — это ещё
+    # одна модель в сотни МБ, которая нужна только для медиа-поиска на русском.
+    # Прогрев добавлял заметное время к каждому старту сервера, даже когда
+    # пользователь вообще не ищет фото по-русски. Загружается лениво при
+    # первом таком запросе (см. translate_to_english).
+    logger.info("Все модели прогреты")

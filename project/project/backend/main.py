@@ -9,15 +9,9 @@
 from __future__ import annotations
 
 import logging
-import os
 import shutil
 from contextlib import asynccontextmanager
 from pathlib import Path
-
-# Отключаем Intel MKL-DNN в PaddleOCR до любых импортов PaddlePaddle.
-# Без этого oneDNN-контекст конфликтует с уже инициализированным PyTorch.
-os.environ["FLAGS_use_mkldnn"] = "0"
-os.environ["FLAGS_mkldnn_cache_capacity"] = "0"
 
 from fastapi import BackgroundTasks, FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
