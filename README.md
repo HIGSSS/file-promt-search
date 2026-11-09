@@ -40,7 +40,7 @@ python3 generate_dataset.py --out ./test_dataset
 python3 run_experiment.py --server http://localhost:8000
 ```
 
-## Улучшения относительно ТЗ
+## Улучшения
 
 Перечислены в `backend/README.md`. Основные:
 
