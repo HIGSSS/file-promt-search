@@ -44,8 +44,8 @@ python3 run_experiment.py --server http://localhost:8000
 
 Перечислены в `backend/README.md`. Основные:
 
-1. **Два отдельных FAISS-индекса** (media 768D + text 384D) — в ТЗ было противоречие между §2.3 и §4.8.
-2. **Агрегация по filepath в searcher'е** — без неё формула скоринга `0.6·image + 0.4·text` из §4.9 не применима.
+1. **Два отдельных FAISS-индекса** (media 768D + text 384D).
+2. **Агрегация по filepath в searcher'е** — без неё формула скоринга `0.6·image + 0.4·text`.
 3. **PyMuPDF вместо PyPDF2+pdf2image** — без системного poppler.
 4. **Атомарная запись индекса** через `.tmp` + `os.replace` — защита от гонки с `/search`.
 5. **Thread-safe `index_state`** с `threading.Lock` + `try_start()` — защита от повторного запуска.
